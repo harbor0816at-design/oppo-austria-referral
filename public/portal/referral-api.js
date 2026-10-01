@@ -55,8 +55,21 @@
     if (logged) { logged.classList.add('hidden'); logged.classList.remove('flex'); }
     const guestHeader = $('#authHeaderGuest');
     if (guestHeader) { guestHeader.classList.remove('hidden'); guestHeader.classList.add('flex'); }
-    $$('.tab-content').forEach(el => { el.classList.remove('active'); el.style.display = 'none'; });
+    // Do not write inline display:none to tab panels. The Stitch tab controller
+    // relies on the .active class; an inline display:none would make every tab
+    // stay blank even after the user clicks the navigation.
+    $('.tab-content').forEach(el => {
+      el.classList.remove('active');
+      el.style.removeProperty('display');
+    });
     clearDemoRegistrationValues();
+
+    // If a layout does not provide a guest landing view, keep Overview visible
+    // instead of leaving the entire application shell blank.
+    if (!guest) {
+      const overview = $('#tab-overview');
+      if (overview) overview.classList.add('active');
+    }
   }
 
   function setLoggedInUI() {
@@ -362,6 +375,13 @@
     else if (channel === 'email') window.location.href = `mailto:?subject=${encodeURIComponent('Meine OPPO Empfehlung')}&body=${encodeURIComponent(text)}`;
     else if (channel === 'facebook') window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(link)}`, '_blank', 'noopener');
     else window.copyToClipboard(link, 'Empfehlungslink kopiert.');
+  };
+
+  // Resilient tab bridge: always clear stale inline display rules before
+  // delegating to the original Stitch navigation implementation.
+  window.switchTab = function(tabName) {
+    $('.tab-content').forEach(el => el.style.removeProperty('display'));
+    if (typeof original.switchTab === 'function') original.switchTab(tabName);
   };
 
   window.openQRModal = function() {
