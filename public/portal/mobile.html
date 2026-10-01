@@ -82,13 +82,31 @@
     .tab-content.active {
       display: block;
     }
+    /* Auth gate: never expose personal referral data before Supabase session validation. */
+    body.auth-pending .tab-content,
+    body.auth-guest .tab-content,
+    body.auth-pending #authHeaderLoggedIn,
+    body.auth-guest #authHeaderLoggedIn,
+    body.auth-pending #authHeaderGuest,
+    body.auth-pending .tab-link-desktop,
+    body.auth-guest .tab-link-desktop,
+    body.auth-pending #mobileBottomNav,
+    body.auth-guest #mobileBottomNav {
+      display: none !important;
+    }
+    body.auth-guest #guestLandingView {
+      display: block !important;
+    }
+    body.auth-user #guestLandingView {
+      display: none !important;
+    }
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(4px); }
       to { opacity: 1; transform: translateY(0); }
     }
   </style>
 </head>
-<body class="h-full bg-[#FAFAFB] text-brand-black flex flex-col justify-between selection:bg-oppo-light selection:text-oppo">
+<body class="auth-pending h-full bg-[#FAFAFB] text-brand-black flex flex-col justify-between selection:bg-oppo-light selection:text-oppo">
 <!-- TOP HEADER (Fixed / Sticky) -->
 <header class="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-surface-border transition-all">
 <div class="max-w-xl mx-auto px-4 h-14 flex items-center justify-between">
