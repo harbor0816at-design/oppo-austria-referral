@@ -3,7 +3,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { ok, fail, serverError } from "@/lib/http";
 import { env } from "@/lib/env";
 
-const schema = z.object({ email: z.string().email() });
+const schema = z.object({ email: z.string().email(), staff: z.boolean().optional().default(false) });
 
 export async function POST(req: Request) {
   try {
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
       email: parsed.data.email,
       options: {
         shouldCreateUser: false,
-        emailRedirectTo: `${env.siteUrl}/auth/confirm?next=/my-referrals`,
+        emailRedirectTo: `${env.siteUrl}/auth/confirm?next=${parsed.data.staff ? "/staff" : "/my-referrals"}`,
       },
     });
     if (error) return fail("UNAUTHORIZED", error.message, 400);
