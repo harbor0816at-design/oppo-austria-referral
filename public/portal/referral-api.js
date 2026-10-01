@@ -49,6 +49,8 @@
 
   function setGuestUI() {
     state.authenticated = false;
+    document.body.classList.remove('auth-pending', 'auth-user');
+    document.body.classList.add('auth-guest');
     const guest = $('#guestLandingView');
     if (guest) guest.classList.remove('hidden');
     const logged = $('#authHeaderLoggedIn');
@@ -58,7 +60,7 @@
     // Do not write inline display:none to tab panels. The Stitch tab controller
     // relies on the .active class; an inline display:none would make every tab
     // stay blank even after the user clicks the navigation.
-    $('.tab-content').forEach(el => {
+    $$('.tab-content').forEach(el => {
       el.classList.remove('active');
       el.style.removeProperty('display');
     });
@@ -74,13 +76,15 @@
 
   function setLoggedInUI() {
     state.authenticated = true;
+    document.body.classList.remove('auth-pending', 'auth-guest');
+    document.body.classList.add('auth-user');
     const guest = $('#guestLandingView');
     if (guest) guest.classList.add('hidden');
     const logged = $('#authHeaderLoggedIn');
     if (logged) { logged.classList.remove('hidden'); logged.classList.add('flex'); }
     const guestHeader = $('#authHeaderGuest');
     if (guestHeader) { guestHeader.classList.add('hidden'); guestHeader.classList.remove('flex'); }
-    $$('.tab-content').forEach(el => { el.style.display = ''; });
+    $$$('.tab-content').forEach(el => { el.style.display = ''; });
     if (typeof original.switchTab === 'function') original.switchTab('overview');
   }
 
@@ -380,6 +384,10 @@
   // Resilient tab bridge: always clear stale inline display rules before
   // delegating to the original Stitch navigation implementation.
   window.switchTab = function(tabName) {
+    if (!state.authenticated) {
+      setGuestUI();
+      return;
+    }
     $('.tab-content').forEach(el => el.style.removeProperty('display'));
     if (typeof original.switchTab === 'function') original.switchTab(tabName);
   };
