@@ -8,6 +8,6 @@ export async function POST(req: Request) {
     const supabase = await createServerSupabase();
     const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
     if (error) return fail("UNAUTHORIZED", "Invalid email or password.", 401);
-    return ok({ userId: data.user.id });
+    return ok({ userId: data.user.id, role: data.user.app_metadata?.role ?? "member" });
   } catch (e) { return serverError(e); }
 }
