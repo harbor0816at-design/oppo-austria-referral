@@ -11,6 +11,11 @@ export async function requireAdmin(): Promise<User> {
   if (user.app_metadata?.role !== "admin") throw new AuthError("FORBIDDEN");
   return user;
 }
+export async function requireStaff(): Promise<User> {
+  const user = await requireUser();
+  if (!["admin", "employee"].includes(String(user.app_metadata?.role || ""))) throw new AuthError("FORBIDDEN");
+  return user;
+}
 export class AuthError extends Error {
   constructor(public code: "UNAUTHORIZED" | "FORBIDDEN") { super(code); }
 }
