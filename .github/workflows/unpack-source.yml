@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - source.tar.gz
+      - 'source.b64.*'
 
 permissions:
   contents: write
@@ -19,11 +19,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Expand application source
+      - name: Rebuild and expand application source
         shell: bash
         run: |
+          cat source.b64.* | base64 -d > source.tar.gz
           tar -xzf source.tar.gz
-          rm -f source.tar.gz
+          rm -f source.tar.gz source.b64.*
 
       - name: Commit expanded source
         shell: bash
