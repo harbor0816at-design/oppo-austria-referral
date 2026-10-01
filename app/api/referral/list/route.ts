@@ -1,0 +1,2 @@
+import { requireUser, AuthError } from "@/lib/auth"; import { listOwnReferrals } from "@/services/referral.service"; import { ok, fail, serverError } from "@/lib/http";
+export async function GET(req:Request){try{const u=await requireUser();const status=new URL(req.url).searchParams.get("status")??undefined;return ok(await listOwnReferrals(u.id,status));}catch(e){if(e instanceof AuthError)return fail(e.code,"Authentication required.",401);return serverError(e)}}

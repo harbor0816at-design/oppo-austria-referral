@@ -1,0 +1,104 @@
+import { createClient } from 'npm:@supabase/supabase-js@2.117.1'
+
+const url = Deno.env.get('SUPABASE_URL')!
+const pubKeys = JSON.parse(Deno.env.get('SUPABASE_PUBLISHABLE_KEYS') || '{}')
+const secretKeys = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') || '{}')
+const publishable = pubKeys.default || Deno.env.get('SUPABASE_ANON_KEY')!
+const secret = secretKeys.default || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const admin = createClient(url, secret, { auth: { autoRefreshToken: false, persistSession: false } })
+
+const allowed: Record<string,string[]> = {
+  clicked:['registered','rejected','cancelled'], registered:['pending','qualified','rejected','cancelled'],
+  pending:['qualified','rejected','cancelled'], qualified:['rewarded','cancelled'], rewarded:['cancelled'], rejected:[], cancelled:[]
+}
+const codeAlphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json','cache-control':'no-store'}})
+function maskEmail(email?:string|null){if(!email)return null;const [local,domain]=email.toLowerCase().split('@');if(!domain)return null;return `${local.slice(0,1)}***@${domain}`}
+function makeCode(){const b=crypto.getRandomValues(new Uint8Array(7));return Array.from(b,x=>codeAlphabet[x%codeAlphabet.length]).join('')}
+function normalizeCode(v:string){return v.trim().toUpperCase().replace(/[^A-Z0-9]/g,'')}
+
+async function authenticated(req:Request){
+  const h=req.headers.get('authorization')||''
+  if(!h.startsWith('Bearer '))return null
+  const token=h.slice(7)
+  const client=createClient(url,publishable,{global:{headers:{Authorization:`Bearer ${token}`}},auth:{persistSession:false,autoRefreshToken:false}})
+  const {data,error}=await client.auth.getUser(token)
+  if(error||!data.user)return null
+  return {user:data.user,client}
+}
+async function getOrCreateReferrer(userId:string){
+  const ex=await admin.from('referrers').select('*').eq('user_id',userId).maybeSingle();if(ex.error)throw ex.error;if(ex.data)return ex.data
+  for(let i=0;i<10;i++){const c=makeCode();const x=await admin.from('referrers').insert({user_id:userId,referral_code:c,referral_slug:c.toLowerCase(),referral_link:`/r/${c}`}).select('*').single();if(!x.error)return x.data;if(x.error.code!=='23505')throw x.error}
+  throw new Error('REFERRAL_CODE_ALLOCATION_FAILED')
+}
+async function recalc(referrerId:string){
+  const r=await admin.from('referrers').select('id,user_id').eq('id',referrerId).single();if(r.error)throw r.error
+  const refs=await admin.from('referrals').select('status').eq('referrer_id',referrerId);if(refs.error)throw refs.error
+  const successful=(refs.data||[]).filter(x=>['qualified','rewarded'].includes(x.status)).length
+  const pending=(refs.data||[]).filter(x=>['registered','pending'].includes(x.status)).length
+  const rw=await admin.from('rewards').select('reward_amount,status').eq('user_id',r.data.user_id).not('status','in','(cancelled,expired)');if(rw.error)throw rw.error
+  const total=(rw.data||[]).reduce((s,x)=>s+Number(x.reward_amount||0),0)
+  const tiers=await admin.from('referral_tiers').select('name,minimum_referrals').eq('active',true).lte('minimum_referrals',successful).order('minimum_referrals',{ascending:false}).limit(1);if(tiers.error)throw tiers.error
+  const u=await admin.from('referrers').update({successful_referrals:successful,pending_referrals:pending,total_reward_amount:total,current_tier:tiers.data?.[0]?.name||'Member',updated_at:new Date().toISOString()}).eq('id',referrerId).select('*').single();if(u.error)throw u.error;return u.data
+}
+async function qualify(referralId:string){
+  const ref=await admin.from('referrals').select('id,referrer_id,referred_user_id,status').eq('id',referralId).single();if(ref.error)throw ref.error
+  const rr=await admin.from('referrers').select('user_id').eq('id',ref.data.referrer_id).single();if(rr.error)throw rr.error
+  const now=new Date().toISOString();const rule=await admin.from('referral_rules').select('*').eq('active',true).lte('valid_from',now).or(`valid_until.is.null,valid_until.gte.${now}`).order('valid_from',{ascending:false}).limit(1).maybeSingle();if(rule.error)throw rule.error;if(!rule.data)throw new Error('NO_ACTIVE_REFERRAL_RULE')
+  const a=await admin.from('rewards').upsert({user_id:rr.data.user_id,referral_id:referralId,reward_type:'store_credit',reward_amount:rule.data.referrer_reward,currency:rule.data.currency,status:'available',approved_at:now},{onConflict:'referral_id,user_id,reward_type',ignoreDuplicates:true});if(a.error)throw a.error
+  if(ref.data.referred_user_id){const b=await admin.from('rewards').upsert({user_id:ref.data.referred_user_id,referral_id:referralId,reward_type:'coupon',reward_amount:rule.data.friend_reward,currency:rule.data.currency,status:'available',approved_at:now},{onConflict:'referral_id,user_id,reward_type',ignoreDuplicates:true});if(b.error)throw b.error}
+}
+
+Deno.serve(async(req)=>{
+  if(req.method!=='POST')return json({success:false,error:{code:'METHOD_NOT_ALLOWED'}},405)
+  try{
+    const body=await req.json().catch(()=>({})) as any;const action=String(body.action||'');const p=body.payload||{}
+    if(action==='track_click'){
+      const code=normalizeCode(String(p.code||''));const sessionId=String(p.sessionId||'');if(!code||!sessionId)return json({success:false,error:{code:'VALIDATION_ERROR'}},422)
+      const rf=await admin.from('referrers').select('id,referral_code').ilike('referral_code',code).maybeSingle();if(rf.error)throw rf.error;if(!rf.data)return json({success:true,data:null})
+      const ex=await admin.from('referrals').select('id').eq('visitor_session_id',sessionId).eq('referrer_id',rf.data.id).maybeSingle();if(ex.error)throw ex.error
+      if(!ex.data){const ins=await admin.from('referrals').insert({referrer_id:rf.data.id,referral_code:rf.data.referral_code,visitor_session_id:sessionId,status:'clicked',source:p.source||'referral_link',utm_source:p.utm_source||null,utm_medium:p.utm_medium||null,utm_campaign:p.utm_campaign||null});if(ins.error)throw ins.error}
+      return json({success:true,data:{referralCode:rf.data.referral_code}})
+    }
+
+    const auth=await authenticated(req);if(!auth)return json({success:false,error:{code:'UNAUTHORIZED'}},401);const user=auth.user
+    if(action==='get_or_create_referrer'||action==='dashboard'){
+      const rf=await getOrCreateReferrer(user.id)
+      if(action==='get_or_create_referrer')return json({success:true,data:{referralCode:rf.referral_code,referralPath:`/r/${rf.referral_code}`}})
+      const rws=await admin.from('rewards').select('reward_amount,status').eq('user_id',user.id);if(rws.error)throw rws.error
+      const available=(rws.data||[]).filter(x=>['approved','available'].includes(x.status)).reduce((s,x)=>s+Number(x.reward_amount||0),0)
+      return json({success:true,data:{referralCode:rf.referral_code,referralPath:`/r/${rf.referral_code}`,successfulReferrals:rf.successful_referrals,pendingReferrals:rf.pending_referrals,currentTier:rf.current_tier,availableReward:available,totalRewardAmount:Number(rf.total_reward_amount||0)}})
+    }
+    if(action==='list_referrals'){
+      const rf=await getOrCreateReferrer(user.id);let q=admin.from('referrals').select('id,status,created_at,registered_at,qualified_at,referred_email,source').eq('referrer_id',rf.id).order('created_at',{ascending:false});if(p.status)q=q.eq('status',p.status);const rows=await q;if(rows.error)throw rows.error
+      const ids=(rows.data||[]).map(x=>x.id);const rw=ids.length?await admin.from('rewards').select('referral_id,reward_amount,status').in('referral_id',ids).eq('user_id',user.id):{data:[],error:null} as any;if(rw.error)throw rw.error
+      const m=new Map((rw.data||[]).map((x:any)=>[x.referral_id,x]));return json({success:true,data:(rows.data||[]).map(x=>({id:x.id,status:x.status,createdAt:x.created_at,registeredAt:x.registered_at,qualifiedAt:x.qualified_at,referredEmail:maskEmail(x.referred_email),source:x.source,reward:Number((m.get(x.id) as any)?.reward_amount||0),rewardStatus:(m.get(x.id) as any)?.status||null}))})
+    }
+    if(action==='attribute_registration'){
+      const sessionId=p.sessionId?String(p.sessionId):'';const referralCode=p.referralCode?String(p.referralCode):'';if(!sessionId&&!referralCode)return json({success:true,data:null})
+      let q=admin.from('referrals').select('id,referrer_id,status,visitor_session_id,referral_code');q=sessionId?q.eq('visitor_session_id',sessionId):q.ilike('referral_code',normalizeCode(referralCode));const f=await q.order('created_at',{ascending:false}).limit(1).maybeSingle();if(f.error)throw f.error;if(!f.data)return json({success:true,data:null})
+      const rr=await admin.from('referrers').select('user_id').eq('id',f.data.referrer_id).single();if(rr.error)throw rr.error;const rp=await admin.from('profiles').select('email').eq('id',rr.data.user_id).single();if(rp.error)throw rp.error
+      const email=(user.email||'').trim().toLowerCase();const self=rr.data.user_id===user.id||rp.data.email.trim().toLowerCase()===email;const dup=await admin.from('referrals').select('id').eq('referrer_id',f.data.referrer_id).eq('referred_user_id',user.id).neq('id',f.data.id).limit(1);if(dup.error)throw dup.error
+      const now=new Date().toISOString();const patch=self?{referred_email:email,referred_user_id:user.id,status:'rejected',rejection_reason:'self_referral',registered_at:now,fraud_status:'blocked',fraud_reason:'self_referral'}:dup.data?.length?{referred_email:email,referred_user_id:user.id,status:'rejected',rejection_reason:'duplicate_referral',registered_at:now,fraud_status:'review',fraud_reason:'duplicate_referral'}:{referred_email:email,referred_user_id:user.id,status:'registered',registered_at:now}
+      const u=await admin.from('referrals').update(patch).eq('id',f.data.id).select('*').single();if(u.error)throw u.error;await recalc(f.data.referrer_id);return json({success:true,data:u.data})
+    }
+    if(action==='log_consent'){
+      const x=await admin.from('consent_logs').insert({user_id:user.id,consent_type:String(p.consentType||'referral_terms'),consent_version:String(p.consentVersion||'v1'),granted:p.granted!==false});if(x.error&&x.error.code!=='23505')throw x.error;return json({success:true,data:{logged:true}})
+    }
+
+    const isAdmin=user.app_metadata?.role==='admin';if(!isAdmin)return json({success:false,error:{code:'FORBIDDEN'}},403)
+    if(action==='admin_list_users'){const r=await admin.from('profiles').select('id,email,first_name,last_name,country,language,status,created_at').order('created_at',{ascending:false}).limit(500);if(r.error)throw r.error;return json({success:true,data:r.data})}
+    if(action==='admin_list_referrals'){let q=admin.from('referrals').select('id,referrer_id,referral_code,referred_email,status,created_at,registered_at,qualified_at,rewarded_at,rejection_reason,fraud_status,fraud_reason').order('created_at',{ascending:false}).limit(1000);if(p.status)q=q.eq('status',p.status);const r=await q;if(r.error)throw r.error;return json({success:true,data:r.data})}
+    if(action==='admin_list_rewards'){const r=await admin.from('rewards').select('*').order('created_at',{ascending:false}).limit(1000);if(r.error)throw r.error;return json({success:true,data:r.data})}
+    if(action==='admin_update_referral'){
+      const id=String(p.id||'');const next=String(p.status||'');const cur=await admin.from('referrals').select('*').eq('id',id).single();if(cur.error)throw cur.error;if(cur.data.status!==next&&!allowed[cur.data.status]?.includes(next))return json({success:false,error:{code:'INVALID_STATUS_TRANSITION'}},409)
+      const patch:any={status:next};if(next==='qualified')patch.qualified_at=new Date().toISOString();if(['rejected','cancelled'].includes(next))patch.rejection_reason=p.reason||null;const changed=await admin.from('referrals').update(patch).eq('id',id).select('*').single();if(changed.error)throw changed.error
+      if(next==='qualified')await qualify(id);if(['rejected','cancelled'].includes(next)){const c=await admin.from('rewards').update({status:'cancelled'}).eq('referral_id',id).in('status',['pending','approved','available']);if(c.error)throw c.error}await recalc(cur.data.referrer_id)
+      const au=await admin.from('audit_logs').insert({admin_user_id:user.id,action:'referral.status_update',entity_type:'referral',entity_id:id,old_value:cur.data,new_value:changed.data});if(au.error)throw au.error;return json({success:true,data:changed.data})
+    }
+    if(action==='admin_update_reward'){
+      const id=String(p.id||'');const status=String(p.status||'');const old=await admin.from('rewards').select('*').eq('id',id).single();if(old.error)throw old.error;const patch:any={status};if(status==='redeemed')patch.redeemed_at=new Date().toISOString();if(['approved','available'].includes(status)&&!old.data.approved_at)patch.approved_at=new Date().toISOString();const ch=await admin.from('rewards').update(patch).eq('id',id).select('*').single();if(ch.error)throw ch.error;const au=await admin.from('audit_logs').insert({admin_user_id:user.id,action:'reward.status_update',entity_type:'reward',entity_id:id,old_value:old.data,new_value:ch.data});if(au.error)throw au.error;return json({success:true,data:ch.data})
+    }
+    return json({success:false,error:{code:'UNKNOWN_ACTION'}},400)
+  }catch(e){console.error(e);return json({success:false,error:{code:'INTERNAL_ERROR',message:e instanceof Error?e.message:String(e)}},500)}
+})

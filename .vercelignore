@@ -1,0 +1,8 @@
+# Supabase Edge Functions run on Supabase, not Vercel.
+supabase/functions/
+
+# Design/source reference files are not required at runtime.
+stitch-reference/
+
+# Unit tests are not part of the production bundle.
+tests/

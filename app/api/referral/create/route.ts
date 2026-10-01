@@ -1,0 +1,2 @@
+import { requireUser, AuthError } from "@/lib/auth"; import { getOrCreateReferrer } from "@/services/referral.service"; import { ok, fail, serverError } from "@/lib/http";
+export async function POST(){ try{const u=await requireUser(); const r=await getOrCreateReferrer(u.id); return ok({referralCode:r.referral_code,referralLink:r.referral_link},201);}catch(e){if(e instanceof AuthError)return fail(e.code,"Authentication required.",401);return serverError(e)}}

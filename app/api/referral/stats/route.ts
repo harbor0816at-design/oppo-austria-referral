@@ -1,0 +1,2 @@
+import { requireUser, AuthError } from "@/lib/auth"; import { getReferralDashboard } from "@/services/referral.service"; import { ok, fail, serverError } from "@/lib/http";
+export async function GET(){try{const u=await requireUser();const d=await getReferralDashboard(u.id);return ok({successfulReferrals:d.successfulReferrals,pendingReferrals:d.pendingReferrals,currentTier:d.currentTier,availableReward:d.availableReward,totalRewardAmount:d.totalRewardAmount});}catch(e){if(e instanceof AuthError)return fail(e.code,"Authentication required.",401);return serverError(e)}}

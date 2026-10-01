@@ -1,0 +1,2 @@
+import { requireAdmin, AuthError } from "@/lib/auth";import { callReferralEdge } from "@/lib/supabase/edge";import { ok,fail,serverError } from "@/lib/http";
+export async function GET(req:Request){try{await requireAdmin();const status=new URL(req.url).searchParams.get("status")??undefined;return ok(await callReferralEdge<any[]>("admin_list_referrals",status?{status}:{}))}catch(e){if(e instanceof AuthError)return fail(e.code,e.code==="FORBIDDEN"?"Admin access required.":"Authentication required.",e.code==="FORBIDDEN"?403:401);return serverError(e)}}

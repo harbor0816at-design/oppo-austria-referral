@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="de"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>OPPO Referral Portal · Austria</title>
+<!-- Tailwind Play CDN with plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Lucide Icons -->
+<script src="https://unpkg.com/lucide@latest"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@500;600&amp;display=swap" rel="stylesheet"/>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            oppo: {
+              DEFAULT: '#008254',
+              hover: '#006E47',
+              light: '#E6F4ED',
+              subtle: '#F1F9F5',
+              dark: '#004D32'
+            },
+            surface: {
+              DEFAULT: '#FFFFFF',
+              subtle: '#FBFBFD',
+              card: '#F6F7F9',
+              border: '#E8EAED',
+              borderDark: '#D5D9DF'
+            },
+            brand: {
+              black: '#121316',
+              charcoal: '#27292E',
+              gray: '#69707D',
+              lightGray: '#9DA4B0'
+            }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #F8F9FA;
+      color: #121316;
+    }
+    .toast {
+      transform: translateY(120%);
+      transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+    }
+    .toast.show {
+      transform: translateY(0);
+    }
+    .modal-backdrop {
+      background-color: rgba(18, 19, 22, 0.45);
+      backdrop-filter: blur(5px);
+    }
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.2s ease-out forwards;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(3px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body class="min-h-full bg-[#F8F9FA] text-brand-black flex flex-col selection:bg-oppo-light selection:text-oppo">
+<!-- ============================================== -->
+<!-- DESKTOP PC WEB HEADER (Full-width sticky nav)  -->
+<!-- ============================================== -->
+<header class="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-surface-border">
+<div class="max-w-7xl mx-auto px-6 lg:px-8 h-16 flex items-center justify-between">
+<!-- Brand Logo (Pure Typographic, No official logo vectors/images) -->
+<div class="flex items-center space-x-8">
+<a class="flex items-center space-x-3 group py-1" href="javascript:void(0)" onclick="switchTab('overview')">
+<!-- Stylized purely CSS / typographic modern wordmark -->
+<div class="flex items-center tracking-[-0.04em]">
+<span class="font-extrabold text-xl tracking-tight text-brand-black font-sans leading-none select-none group-hover:text-oppo transition-colors">
+              OPPO
+            </span>
+<span class="w-1.5 h-1.5 rounded-full bg-oppo ml-1 animate-pulse"></span>
+</div>
+<span class="text-[11px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-md bg-surface-card border border-surface-border text-brand-gray group-hover:text-brand-black transition-colors">
+            Referral AT
+          </span>
+</a>
+<!-- Desktop Navigation Bar -->
+<nav class="hidden md:flex items-center space-x-1 lg:space-x-2 text-sm font-medium">
+<button class="tab-link-desktop px-3.5 py-1.5 rounded-lg text-oppo bg-oppo-subtle font-semibold transition" id="nav-btn-overview" onclick="switchTab('overview')">
+            Übersicht
+          </button>
+<button class="tab-link-desktop px-3.5 py-1.5 rounded-lg text-brand-gray hover:text-brand-black hover:bg-surface-card transition" id="nav-btn-referrals" onclick="switchTab('referrals')">
+            Empfehlungen
+          </button>
+<button class="tab-link-desktop px-3.5 py-1.5 rounded-lg text-brand-gray hover:text-brand-black hover:bg-surface-card transition" id="nav-btn-products" onclick="switchTab('products')">
+            Produkte &amp; Prämien
+          </button>
+<button class="tab-link-desktop px-3.5 py-1.5 rounded-lg text-brand-gray hover:text-brand-black hover:bg-surface-card transition" id="nav-btn-knowledge" onclick="switchTab('knowledge')">
+            Wissenscenter
+          </button>
+<button class="tab-link-desktop px-3.5 py-1.5 rounded-lg text-brand-gray hover:text-brand-black hover:bg-surface-card transition" id="nav-btn-account" onclick="switchTab('account')">
+            Konto &amp; Auszahlung
+          </button>
+</nav>
+</div>
+<!-- Right Controls: Country, Language Switcher, User Status & Logout -->
+<div class="flex items-center space-x-3.5">
+<!-- Country Indicator -->
+<div class="hidden sm:inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-surface-card border border-surface-border text-xs font-medium text-brand-gray">
+<span class="w-2 h-2 rounded-full bg-oppo"></span>
+<span>Österreich · AT</span>
+</div>
+<!-- Language Selector Dropdown -->
+<div class="relative" id="langDropdownWrapper">
+<button class="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-xs font-semibold text-brand-charcoal transition" id="langButton" onclick="toggleLangMenu()">
+<i class="w-3.5 h-3.5 text-brand-gray" data-lucide="globe"></i>
+<span id="currentLangLabel">DE</span>
+<i class="w-3 h-3 text-brand-gray" data-lucide="chevron-down"></i>
+</button>
+<!-- Dropdown Menu -->
+<div class="hidden absolute right-0 mt-1.5 w-36 bg-white rounded-xl shadow-xl border border-surface-border py-1.5 z-50 text-xs" id="langMenu">
+<button class="w-full text-left px-3 py-2 flex items-center justify-between hover:bg-surface-card text-brand-black font-semibold" onclick="selectLanguage('DE')">
+<span>Deutsch (AT)</span>
+<i class="w-3.5 h-3.5 text-oppo" data-lucide="check" id="checkDE"></i>
+</button>
+<button class="w-full text-left px-3 py-2 flex items-center justify-between hover:bg-surface-card text-brand-gray font-normal" onclick="selectLanguage('EN')">
+<span>English (EU)</span>
+<i class="w-3.5 h-3.5 text-oppo hidden" data-lucide="check" id="checkEN"></i>
+</button>
+</div>
+</div>
+<div class="h-5 w-px bg-surface-border hidden sm:block"></div>
+<!-- Authenticated User Menu -->
+<div class="flex items-center space-x-3" id="authHeaderLoggedIn">
+<button class="flex items-center space-x-2.5 text-left p-1 -m-1 rounded-xl hover:bg-surface-card transition" onclick="switchTab('account')">
+<div class="w-8 h-8 rounded-full bg-oppo-subtle text-oppo border border-oppo/20 flex items-center justify-center text-xs font-bold font-mono">
+              LW
+            </div>
+<div class="hidden xl:block text-xs">
+<p class="font-semibold text-brand-black leading-tight">Lukas Weber</p>
+<p class="text-[10px] text-oppo font-medium">OPPO Member AT</p>
+</div>
+</button>
+<button aria-label="Abmelden" class="p-2 rounded-lg text-brand-gray hover:text-brand-black hover:bg-surface-card transition" onclick="logoutDemo()" title="Abmelden">
+<i class="w-4 h-4" data-lucide="log-out"></i>
+</button>
+</div>
+<!-- Guest State Controls -->
+<div class="hidden items-center space-x-2" id="authHeaderGuest">
+<button class="text-xs font-semibold px-4 py-2 rounded-xl bg-oppo text-white hover:bg-oppo-hover transition shadow-sm" onclick="openRegisterModal()">
+            Registrieren
+          </button>
+<button class="text-xs font-medium px-3 py-2 text-brand-black hover:text-oppo transition" onclick="loginDemo()">
+            Anmelden
+          </button>
+</div>
+</div>
+</div>
+</header>
+<!-- ============================================== -->
+<!-- MAIN PC WEB CONTENT AREA (12-Col Wide Layout)  -->
+<!-- ============================================== -->
+<main class="flex-1 max-w-7xl w-full mx-auto px-6 lg:px-8 py-8">
+<!-- ============================================== -->
+<!-- 0. GUEST LANDING STATE (PC Optimized)          -->
+<!-- ============================================== -->
+<section class="hidden py-12" id="guestLandingView">
+<div class="text-center max-w-3xl mx-auto py-8">
+<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tracking-wide bg-oppo-light text-oppo mb-4">
+          Offizielles OPPO Österreich Empfehlungsprogramm
+        </span>
+<h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight text-brand-black leading-[1.15] mb-4">
+          Freunde für Flaggschiff-Innovation begeistern.<br/>
+<span class="text-oppo">Bis zu €100 Prämie je Empfehlung erhalten.</span>
+</h1>
+<p class="text-base text-brand-gray max-w-xl mx-auto mb-8 font-normal leading-relaxed">
+          Teilen Sie exklusive Store-Vorteile mit Ihrem persönlichen Referral-Link. Nach erfolgreichem Kauf erhalten Sie Ihr Guthaben unkompliziert per Banküberweisung oder Store-Gutschrift.
+        </p>
+<div class="flex items-center justify-center gap-4">
+<button class="px-6 py-3.5 rounded-xl bg-oppo text-white font-semibold text-sm hover:bg-oppo-hover shadow-sm transition active:scale-[0.99] flex items-center space-x-2" onclick="openRegisterModal()">
+<span>Jetzt kostenlos registrieren</span>
+<i class="w-4 h-4" data-lucide="arrow-right"></i>
+</button>
+<button class="px-6 py-3.5 rounded-xl bg-white border border-surface-border text-brand-black font-semibold text-sm hover:border-brand-black transition" onclick="loginDemo()">
+            Bereits registriert? Anmelden
+          </button>
+</div>
+</div>
+<!-- 3 Desktop Step Columns -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12 border-t border-surface-border pt-12">
+<div class="p-6 rounded-2xl bg-white border border-surface-border">
+<span class="text-xs font-mono font-bold text-oppo uppercase tracking-wider">Schritt 01</span>
+<h3 class="text-base font-bold text-brand-black mt-2 mb-2">Registrieren &amp; Code sichern</h3>
+<p class="text-sm text-brand-gray leading-relaxed">In unter 2 Minuten teilnehmen. Als verifizierter Besitzer erhalten Sie direkten Zugriff auf Ihren persönlichen Empfehlungscode.</p>
+</div>
+<div class="p-6 rounded-2xl bg-white border border-surface-border">
+<span class="text-xs font-mono font-bold text-oppo uppercase tracking-wider">Schritt 02</span>
+<h3 class="text-base font-bold text-brand-black mt-2 mb-2">Link oder QR-Code teilen</h3>
+<p class="text-sm text-brand-gray leading-relaxed">Teilen Sie Produktlinks oder Ihren Code direkt per WhatsApp, E-Mail oder QR-Code auf Social Media und im Bekanntenkreis.</p>
+</div>
+<div class="p-6 rounded-2xl bg-white border border-surface-border">
+<span class="text-xs font-mono font-bold text-oppo uppercase tracking-wider">Schritt 03</span>
+<h3 class="text-base font-bold text-brand-black mt-2 mb-2">Prämie flexibel auszahlen</h3>
+<p class="text-sm text-brand-gray leading-relaxed">Sobald die 30-tägige Widerrufsfrist abgelaufen ist, lassen Sie sich Ihr Guthaben auf Ihr Bankkonto oder als OPPO Gutschein mit +10% Bonus auszahlen.</p>
+</div>
+</div>
+</section>
+<!-- ============================================== -->
+<!-- 1. DASHBOARD OVERVIEW TAB (Desktop 12-Col Grid)-->
+<!-- ============================================== -->
+<div class="tab-content active space-y-6" id="tab-overview">
+<!-- Greeting and Header Row -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-surface-border gap-3">
+<div>
+<h1 class="text-2xl lg:text-3xl font-bold tracking-tight text-brand-black">Willkommen zurück, Lukas</h1>
+<p class="text-xs sm:text-sm text-brand-gray mt-1">Ihr persönliches OPPO Austria Referral Dashboard mit Echtzeit-Tracking.</p>
+</div>
+<div class="flex items-center space-x-3">
+<button class="px-3.5 py-2 rounded-xl bg-white border border-surface-border hover:border-oppo text-xs font-semibold text-brand-black transition flex items-center space-x-1.5 shadow-sm" onclick="openQRModal()">
+<i class="w-3.5 h-3.5 text-oppo" data-lucide="qr-code"></i>
+<span>Mein QR-Code</span>
+</button>
+<button class="px-4 py-2 rounded-xl bg-brand-black text-white hover:bg-black text-xs font-semibold transition flex items-center space-x-1.5 shadow-sm" onclick="openPayoutModal()">
+<i class="w-3.5 h-3.5 text-oppo-light" data-lucide="credit-card"></i>
+<span>Guthaben auszahlen</span>
+</button>
+</div>
+</div>
+<!-- 4 Core Metric KPI Cards (PC Horizontal 4-Column Row) -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<!-- Metric 1 -->
+<div class="p-5 rounded-2xl bg-white border border-surface-border shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between text-brand-gray text-xs font-medium">
+<span class="uppercase tracking-wider font-semibold">Bereit zur Auszahlung</span>
+<div class="w-7 h-7 rounded-lg bg-oppo-subtle text-oppo flex items-center justify-center">
+<i class="w-4 h-4" data-lucide="check-circle"></i>
+</div>
+</div>
+<div class="mt-4">
+<div class="text-3xl lg:text-4xl font-extrabold text-brand-black tracking-tight">€300</div>
+<p class="text-xs text-oppo font-semibold mt-1">Verfügbares Bar-Guthaben</p>
+</div>
+</div>
+<!-- Metric 2 -->
+<div class="p-5 rounded-2xl bg-white border border-surface-border shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between text-brand-gray text-xs font-medium">
+<span class="uppercase tracking-wider font-semibold">In Prüfung</span>
+<div class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+<i class="w-4 h-4" data-lucide="clock"></i>
+</div>
+</div>
+<div class="mt-4">
+<div class="text-3xl lg:text-4xl font-extrabold text-brand-black tracking-tight">€100</div>
+<p class="text-xs text-amber-700 font-semibold mt-1">Laufende Widerrufsfrist</p>
+</div>
+</div>
+<!-- Metric 3 -->
+<div class="p-5 rounded-2xl bg-white border border-surface-border shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between text-brand-gray text-xs font-medium">
+<span class="uppercase tracking-wider font-semibold">Empfehlungen</span>
+<div class="w-7 h-7 rounded-lg bg-surface-card text-brand-gray flex items-center justify-center">
+<i class="w-4 h-4" data-lucide="users"></i>
+</div>
+</div>
+<div class="mt-4">
+<div class="text-3xl lg:text-4xl font-extrabold text-brand-black tracking-tight">8</div>
+<p class="text-xs text-brand-gray font-medium mt-1">Erfolgreich weitergeleitet</p>
+</div>
+</div>
+<!-- Metric 4 -->
+<div class="p-5 rounded-2xl bg-white border border-surface-border shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between text-brand-gray text-xs font-medium">
+<span class="uppercase tracking-wider font-semibold">Bestätigte Käufe</span>
+<div class="w-7 h-7 rounded-lg bg-surface-card text-brand-gray flex items-center justify-center">
+<i class="w-4 h-4" data-lucide="shopping-bag"></i>
+</div>
+</div>
+<div class="mt-4">
+<div class="text-3xl lg:text-4xl font-extrabold text-brand-black tracking-tight">6</div>
+<p class="text-xs text-brand-gray font-medium mt-1">Ausgelieferte Bestellungen</p>
+</div>
+</div>
+</div>
+<!-- DESKTOP 2-COLUMN SECTION: Share Console (Left) + Account & Activity (Right) -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+<!-- LEFT COLUMN (7 Cols): Referral Fast Share & Direct Tools -->
+<div class="lg:col-span-7 space-y-6">
+<!-- Direct Referral Link Master Card -->
+<div class="p-6 rounded-2xl bg-white border border-surface-border shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center space-x-2.5">
+<div class="w-8 h-8 rounded-xl bg-oppo-subtle text-oppo flex items-center justify-center">
+<i class="w-4 h-4" data-lucide="link"></i>
+</div>
+<div>
+<h2 class="text-sm font-bold uppercase tracking-wider text-brand-black">Ihr persönlicher Empfehlungslink</h2>
+<p class="text-xs text-brand-gray">Freunde sparen bis zu €50 beim Neukauf im offiziellen AT Store</p>
+</div>
+</div>
+<span class="text-xs font-mono text-brand-black bg-surface-card px-3 py-1 rounded-lg border border-surface-border">Code: <strong class="text-oppo">LUKAS50</strong></span>
+</div>
+<!-- URL Copy Bar -->
+<div class="flex items-center space-x-2.5 mb-5">
+<div class="flex-1 bg-surface-subtle border border-surface-border px-3.5 py-3 rounded-xl font-mono text-xs text-brand-black truncate select-all">
+                https://oppo.com/at/ref/lukas123
+              </div>
+<button class="px-5 py-3 rounded-xl bg-oppo text-white font-semibold text-xs hover:bg-oppo-hover transition active:scale-95 flex items-center space-x-2 shrink-0 shadow-sm" onclick="copyToClipboard('https://oppo.com/at/ref/lukas123', 'Empfehlungslink in die Zwischenablage kopiert!')">
+<i class="w-3.5 h-3.5" data-lucide="copy"></i>
+<span>Link kopieren</span>
+</button>
+</div>
+<!-- 1-Click Fast Multi-Channel Share Buttons -->
+<div class="grid grid-cols-4 gap-3 pt-4 border-t border-surface-border">
+<button class="flex items-center justify-center space-x-2 p-3 rounded-xl bg-surface-card hover:bg-surface-subtle border border-surface-border hover:border-oppo transition text-left" onclick="shareVia('whatsapp')">
+<div class="w-6 h-6 rounded-full bg-[#25D366]/15 text-[#25D366] flex items-center justify-center shrink-0">
+<i class="w-3.5 h-3.5" data-lucide="message-circle"></i>
+</div>
+<div class="text-xs">
+<span class="font-bold text-brand-black block">WhatsApp</span>
+</div>
+</button>
+<button class="flex items-center justify-center space-x-2 p-3 rounded-xl bg-surface-card hover:bg-surface-subtle border border-surface-border hover:border-oppo transition text-left" onclick="shareVia('email')">
+<div class="w-6 h-6 rounded-full bg-brand-black/10 text-brand-black flex items-center justify-center shrink-0">
+<i class="w-3.5 h-3.5" data-lucide="mail"></i>
+</div>
+<div class="text-xs">
+<span class="font-bold text-brand-black block">E-Mail</span>
+</div>
+</button>
+<button class="flex items-center justify-center space-x-2 p-3 rounded-xl bg-surface-card hover:bg-surface-subtle border border-surface-border hover:border-oppo transition text-left" onclick="copyToClipboard('LUKAS50', 'Gutscheincode LUKAS50 kopiert')">
+<div class="w-6 h-6 rounded-full bg-oppo-light text-oppo flex items-center justify-center shrink-0">
+<i class="w-3.5 h-3.5" data-lucide="tag"></i>
+</div>
+<div class="text-xs">
+<span class="font-bold text-brand-black block">Code</span>
+</div>
+</button>
+<button class="flex items-center justify-center space-x-2 p-3 rounded-xl bg-surface-card hover:bg-surface-subtle border border-surface-border hover:border-oppo transition text-left" onclick="openQRModal()">
+<div class="w-6 h-6 rounded-full bg-brand-black/10 text-brand-black flex items-center justify-center shrink-0">
+<i class="w-3.5 h-3.5" data-lucide="qr-code"></i>
+</div>
+<div class="text-xs">
+<span class="font-bold text-brand-black block">QR-Code</span>
+</div>
+</button>
+</div>
+</div>
+<!-- Recent Referrals Table inside Overview -->
+<div class="p-6 rounded-2xl bg-white border border-surface-border shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<div>
+<h2 class="text-sm font-bold uppercase tracking-wider text-brand-black">Letzte Empfehlungsaktivitäten</h2>
+<p class="text-xs text-brand-gray">Aktuelle Status-Updates von Freunden &amp; Kontakten</p>
+</div>
+<button class="text-xs font-semibold text-oppo hover:underline flex items-center space-x-1" onclick="switchTab('referrals')">
+<span>Alle anzeigen</span>
+<i class="w-3.5 h-3.5" data-lucide="chevron-right"></i>
+</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-surface-border text-[11px] font-semibold uppercase tracking-wider text-brand-gray">
+<th class="py-2.5 px-3">Kontakt</th>
+<th class="py-2.5 px-3">Gerät</th>
+<th class="py-2.5 px-3">Datum</th>
+<th class="py-2.5 px-3">Status</th>
+<th class="py-2.5 px-3 text-right">Prämie</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-border text-xs">
+<tr class="hover:bg-surface-card/60 transition">
+<td class="py-3 px-3 font-semibold text-brand-black">
+<div class="flex items-center space-x-2.5">
+<span class="w-7 h-7 rounded-full bg-oppo-subtle text-oppo font-bold flex items-center justify-center text-[11px]">AM</span>
+<span>Anna M.</span>
+</div>
+</td>
+<td class="py-3 px-3 text-brand-gray">OPPO Find X10 Pro</td>
+<td class="py-3 px-3 text-brand-gray font-mono">24. Feb 2025</td>
+<td class="py-3 px-3">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-oppo-light text-oppo">
+                        Bestätigt
+                      </span>
+</td>
+<td class="py-3 px-3 text-right font-bold text-brand-black">+€50,00</td>
+</tr>
+<tr class="hover:bg-surface-card/60 transition">
+<td class="py-3 px-3 font-semibold text-brand-black">
+<div class="flex items-center space-x-2.5">
+<span class="w-7 h-7 rounded-full bg-amber-50 text-amber-700 font-bold flex items-center justify-center text-[11px]">DK</span>
+<span>Daniel K.</span>
+</div>
+</td>
+<td class="py-3 px-3 text-brand-gray">Find X10 Pro Max</td>
+<td class="py-3 px-3 text-brand-gray font-mono">21. Feb 2025</td>
+<td class="py-3 px-3">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700">
+                        In Prüfung
+                      </span>
+</td>
+<td class="py-3 px-3 text-right font-bold text-amber-700">+€50,00</td>
+</tr>
+<tr class="hover:bg-surface-card/60 transition">
+<td class="py-3 px-3 font-semibold text-brand-black">
+<div class="flex items-center space-x-2.5">
+<span class="w-7 h-7 rounded-full bg-oppo-subtle text-oppo font-bold flex items-center justify-center text-[11px]">ST</span>
+<span>Sarah T.</span>
+</div>
+</td>
+<td class="py-3 px-3 text-brand-gray">OPPO Find X10</td>
+<td class="py-3 px-3 text-brand-gray font-mono">18. Feb 2025</td>
+<td class="py-3 px-3">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-oppo-light text-oppo">
+                        Bestätigt
+                      </span>
+</td>
+<td class="py-3 px-3 text-right font-bold text-brand-black">+€40,00</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- RIGHT COLUMN (5 Cols): Financial Accounting & VIP Status -->
+<div class="lg:col-span-5 space-y-6">
+<!-- Balance Summary Card -->
+<div class="p-6 rounded-2xl bg-white border border-surface-border shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<div>
+<h2 class="text-sm font-bold uppercase tracking-wider text-brand-black">Belohnungskonto</h2>
+<p class="text-xs text-brand-gray">Offizielles Gutschriften-Konto Österreich</p>
+</div>
+<span class="text-[11px] font-semibold text-oppo bg-oppo-light px-2.5 py-1 rounded-full">Aktiv</span>
+</div>
+<div class="grid grid-cols-3 gap-2 p-4 rounded-xl bg-surface-card mb-5 text-center">
+<div>
+<span class="text-[10px] uppercase font-semibold text-brand-gray block mb-0.5">Verfügbar</span>
+<span class="text-xl font-bold text-oppo">€300</span>
+</div>
+<div class="border-x border-surface-border">
+<span class="text-[10px] uppercase font-semibold text-brand-gray block mb-0.5">Ausstehend</span>
+<span class="text-xl font-bold text-amber-600">€100</span>
+</div>
+<div>
+<span class="text-[10px] uppercase font-semibold text-brand-gray block mb-0.5">Ausbezahlt</span>
+<span class="text-xl font-bold text-brand-charcoal">€150</span>
+</div>
+</div>
+<div class="space-y-2.5">
+<button class="w-full py-3 px-4 rounded-xl bg-brand-black text-white font-semibold text-xs hover:bg-black transition flex items-center justify-center space-x-2 active:scale-[0.99] shadow-sm" onclick="openPayoutModal()">
+<i class="w-4 h-4 text-oppo-light" data-lucide="arrow-up-right"></i>
+<span>Guthaben jetzt auszahlen lassen</span>
+</button>
+<p class="text-[11px] text-center text-brand-gray">Auszahlung direkt auf Ihr IBAN-Konto (AT) innerhalb von 1-2 Werktagen.</p>
+</div>
+</div>
+<!-- Ambassador Status / Level Box -->
+<div class="p-6 rounded-2xl bg-white border border-surface-border shadow-sm">
+<div class="flex items-center justify-between mb-2">
+<span class="text-xs font-bold uppercase tracking-wider text-brand-black">Referral Mitgliedschaft</span>
+<span class="text-xs font-semibold text-oppo">OPPO Member AT</span>
+</div>
+<p class="text-xs text-brand-gray mb-3">Noch 2 bestätigte Empfehlungen bis zum Status <strong>OPPO Ambassador</strong> (+20% Prämienbonus).</p>
+<div class="w-full bg-surface-card rounded-full h-2 overflow-hidden mb-3">
+<div class="bg-oppo h-2 rounded-full transition-all duration-500" style="width: 80%"></div>
+</div>
+<div class="flex justify-between items-center text-xs font-mono text-brand-gray">
+<span>8 von 10 Zielen erreicht</span>
+<span class="text-oppo font-semibold">80%</span>
+</div>
+</div>
+<!-- Quick FAQ / Support Snippet -->
+<div class="p-5 rounded-2xl bg-oppo-subtle/80 border border-oppo/20">
+<div class="flex items-start space-x-3">
+<i class="w-4 h-4 text-oppo mt-0.5 shrink-0" data-lucide="info"></i>
+<div class="text-xs">
+<p class="font-bold text-brand-black mb-1">Widerrufsfrist &amp; Prämien-Freigabe</p>
+<p class="text-brand-gray leading-relaxed">
+                  Prämien werden exakt 30 Tage nach Kaufabschluss des eingeladenen Kunden gutgeschrieben, sofern keine Rücksendung erfolgt.
+                </p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- ============================================== -->
+<!-- 2. FULL REFERRALS TAB (Desktop Enhanced View)  -->
+<!-- ============================================== -->
+<div class="tab-content space-y-6" id="tab-referrals">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-surface-border gap-3">
+<div>
+<h1 class="text-2xl lg:text-3xl font-bold tracking-tight text-brand-black">Empfehlungen &amp; Historie</h1>
+<p class="text-sm text-brand-gray mt-1">Detaillierte Übersicht über alle über Ihren Link initiierten Käufe.</p>
+</div>
+<!-- Filter Buttons -->
+<div class="inline-flex p-1 rounded-xl bg-surface-card border border-surface-border text-xs font-semibold">
+<button class="referral-filter alle px-3.5 py-1.5 rounded-lg bg-brand-black text-white transition" onclick="filterReferrals('alle')">
+            Alle (12)
+          </button>
+<button class="referral-filter bestätigt px-3.5 py-1.5 rounded-lg text-brand-gray hover:text-brand-black transition" onclick="filterReferrals('bestätigt')">
+            Bestätigt (8)
+          </button>
+<button class="referral-filter ausstehend px-3.5 py-1.5 rounded-lg text-brand-gray hover:text-brand-black transition" onclick="filterReferrals('ausstehend')">
+            Ausstehend (3)
+          </button>
+<button class="referral-filter storniert px-3.5 py-1.5 rounded-lg text-brand-gray hover:text-brand-black transition" onclick="filterReferrals('storniert')">
+            Storniert (1)
+          </button>
+</div>
+</div>
+<!-- Referrals Table -->
+<div class="bg-white rounded-2xl border border-surface-border shadow-sm overflow-hidden">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-subtle border-b border-surface-border text-[11px] font-semibold uppercase tracking-wider text-brand-gray">
+<th class="py-3 px-5">Empfohlener Käufer</th>
+<th class="py-3 px-5">Modell</th>
+<th class="py-3 px-5">Transaktions-ID</th>
+<th class="py-3 px-5">Bestelldatum</th>
+<th class="py-3 px-5">Status</th>
+<th class="py-3 px-5 text-right">Ihre Prämie</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-border text-xs" id="referralsListBody">
+<!-- Row 1 -->
+<tr class="referral-item hover:bg-surface-card/60 transition" data-status="bestätigt">
+<td class="py-3.5 px-5 font-bold text-brand-black">
+<div class="flex items-center space-x-3">
+<span class="w-8 h-8 rounded-full bg-oppo-subtle text-oppo font-bold flex items-center justify-center text-xs">AM</span>
+<span>Anna M.</span>
+</div>
+</td>
+<td class="py-3.5 px-5 text-brand-charcoal font-medium">OPPO Find X10 Pro</td>
+<td class="py-3.5 px-5 font-mono text-brand-gray">ORD-AT-90214</td>
+<td class="py-3.5 px-5 font-mono text-brand-gray">24. Feb 2025</td>
+<td class="py-3.5 px-5">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold bg-oppo-light text-oppo">
+                  Bestätigt
+                </span>
+</td>
+<td class="py-3.5 px-5 text-right font-extrabold text-brand-black">€50,00</td>
+</tr>
+<!-- Row 2 -->
+<tr class="referral-item hover:bg-surface-card/60 transition" data-status="ausstehend">
+<td class="py-3.5 px-5 font-bold text-brand-black">
+<div class="flex items-center space-x-3">
+<span class="w-8 h-8 rounded-full bg-amber-50 text-amber-700 font-bold flex items-center justify-center text-xs">DK</span>
+<span>Daniel K.</span>
+</div>
+</td>
+<td class="py-3.5 px-5 text-brand-charcoal font-medium">OPPO Find X10 Pro Max</td>
+<td class="py-3.5 px-5 font-mono text-brand-gray">ORD-AT-90182</td>
+<td class="py-3.5 px-5 font-mono text-brand-gray">21. Feb 2025</td>
+<td class="py-3.5 px-5">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700">
+                  In Prüfung (Widerrufsfrist)
+                </span>
+</td>
+<td class="py-3.5 px-5 text-right font-extrabold text-amber-700">€50,00</td>
+</tr>
+<!-- Row 3 -->
+<tr class="referral-item hover:bg-surface-card/60 transition" data-status="bestätigt">
+<td class="py-3.5 px-5 font-bold text-brand-black">
+<div class="flex items-center space-x-3">
+<span class="w-8 h-8 rounded-full bg-oppo-subtle text-oppo font-bold flex items-center justify-center text-xs">ST</span>
+<span>Sarah T.</span>
+</div>
+</td>
+<td class="py-3.5 px-5 text-brand-charcoal font-medium">OPPO Find X10</td>
+<td class="py-3.5 px-5 font-mono text-brand-gray">ORD-AT-89941</td>
+<td class="py-3.5 px-5 font-mono text-brand-gray">18. Feb 2025</td>
+<td class="py-3.5 px-5">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold bg-oppo-light text-oppo">
+                  Bestätigt
+                </span>
+</td>
+<td class="py-3.5 px-5 text-right font-extrabold text-brand-black">€40,00</td>
+</tr>
+<!-- Row 4 -->
+<tr class="referral-item hover:bg-surface-card/60 transition" data-status="bestätigt">
+<td class="py-3.5 px-5 font-bold text-brand-black">
+<div class="flex items-center space-x-3">
+<span class="w-8 h-8 rounded-full bg-oppo-subtle text-oppo font-bold flex items-center justify-center text-xs">MH</span>
+<span>Markus H.</span>
+</div>
+</td>
+<td class="py-3.5 px-5 text-brand-charcoal font-medium">OPPO Find X10 Pro</td>
+<td class="py-3.5 px-5 font-mono text-brand-gray">ORD-AT-89512</td>
+<td class="py-3.5 px-5 font-mono text-brand-gray">12. Feb 2025</td>
+<td class="py-3.5 px-5">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold bg-oppo-light text-oppo">
+                  Bestätigt
+                </span>
+</td>
+<td class="py-3.5 px-5 text-right font-extrabold text-brand-black">€50,00</td>
+</tr>
+<!-- Row 5 -->
+<tr class="referral-item hover:bg-surface-card/60 transition" data-status="ausstehend">
+<td class="py-3.5 px-5 font-bold text-brand-black">
+<div class="flex items-center space-x-3">
+<span class="w-8 h-8 rounded-full bg-amber-50 text-amber-700 font-bold flex items-center justify-center text-xs">JB</span>
+<span>Julia B.</span>
+</div>
+</td>
+<td class="py-3.5 px-5 text-brand-charcoal font-medium">OPPO Reno12 Pro 5G</td>
+<td class="py-3.5 px-5 font-mono text-brand-gray">ORD-AT-89104</td>
+<td class="py-3.5 px-5 font-mono text-brand-gray">10. Feb 2025</td>
+<td class="py-3.5 px-5">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700">
+                  In Prüfung
+                </span>
+</td>
+<td class="py-3.5 px-5 text-right font-extrabold text-amber-700">€30,00</td>
+</tr>
+<!-- Row 6 -->
+<tr class="referral-item hover:bg-surface-card/60 transition" data-status="storniert">
+<td class="py-3.5 px-5 font-bold text-brand-gray">
+<div class="flex items-center space-x-3">
+<span class="w-8 h-8 rounded-full bg-surface-card text-brand-gray font-bold flex items-center justify-center text-xs">FW</span>
+<span class="line-through">Felix W.</span>
+</div>
+</td>
+<td class="py-3.5 px-5 text-brand-gray">OPPO Find X10</td>
+<td class="py-3.5 px-5 font-mono text-brand-gray">ORD-AT-88410</td>
+<td class="py-3.5 px-5 font-mono text-brand-gray">02. Feb 2025</td>
+<td class="py-3.5 px-5">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold bg-surface-card text-brand-gray">
+                  Storniert / Widerruf
+                </span>
+</td>
+<td class="py-3.5 px-5 text-right font-bold text-brand-gray">€0,00</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- ============================================== -->
+<!-- 3. PRODUKTE TAB (Product Referral Cards Grid)  -->
+<!-- ============================================== -->
+<div class="tab-content space-y-6" id="tab-products">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-surface-border gap-3">
+<div>
+<h1 class="text-2xl lg:text-3xl font-bold tracking-tight text-brand-black">Produkte gezielt empfehlen</h1>
+<p class="text-sm text-brand-gray mt-1">Wählen Sie ein bestimmtes Modell aus und teilen Sie maßgeschneiderte Produkt-Links.</p>
+</div>
+</div>
+<!-- 4 Desktop Grid Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+<!-- Product Card 1 -->
+<div class="bg-white rounded-2xl border border-surface-border p-5 flex flex-col justify-between hover:shadow-md transition">
+<div>
+<div class="flex justify-between items-start mb-3">
+<span class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-brand-black text-white">Flaggschiff</span>
+<span class="text-xs font-bold text-oppo bg-oppo-subtle px-2 py-0.5 rounded border border-oppo/20">+€50 Prämie</span>
+</div>
+<div class="h-28 bg-surface-card rounded-xl border border-surface-border flex flex-col items-center justify-center my-3 relative overflow-hidden">
+<div class="w-12 h-12 rounded-full border border-oppo/40 bg-oppo-light/40 flex items-center justify-center">
+<div class="w-4 h-4 rounded-full bg-oppo"></div>
+</div>
+<span class="text-[10px] font-mono text-brand-gray mt-2 font-bold">FIND X10 PRO MAX</span>
+</div>
+<h3 class="text-sm font-bold text-brand-black mb-1">OPPO Find X10 Pro Max</h3>
+<p class="text-xs text-brand-gray mb-1">Hasselblad 200MP · 100W SUPERVOOC</p>
+<p class="text-xs font-semibold text-brand-charcoal">UVP €1.599</p>
+</div>
+<button class="w-full mt-4 py-2.5 rounded-xl bg-oppo text-white font-semibold text-xs hover:bg-oppo-hover transition flex items-center justify-center space-x-1.5 shadow-sm" onclick="openProductShareModal('OPPO Find X10 Pro Max', '€50', 'https://oppo.com/at/ref/lukas123/find-x10-pro-max')">
+<i class="w-3.5 h-3.5" data-lucide="share-2"></i>
+<span>Link erstellen &amp; teilen</span>
+</button>
+</div>
+<!-- Product Card 2 -->
+<div class="bg-white rounded-2xl border border-surface-border p-5 flex flex-col justify-between hover:shadow-md transition">
+<div>
+<div class="flex justify-between items-start mb-3">
+<span class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-oppo-light text-oppo">Top Empfehlung</span>
+<span class="text-xs font-bold text-oppo bg-oppo-subtle px-2 py-0.5 rounded border border-oppo/20">+€50 Prämie</span>
+</div>
+<div class="h-28 bg-surface-card rounded-xl border border-surface-border flex flex-col items-center justify-center my-3 relative overflow-hidden">
+<div class="w-10 h-10 rounded-full border border-oppo/40 bg-oppo-light/40 flex items-center justify-center">
+<div class="w-3.5 h-3.5 rounded-full bg-oppo"></div>
+</div>
+<span class="text-[10px] font-mono text-brand-gray mt-2 font-bold">FIND X10 PRO</span>
+</div>
+<h3 class="text-sm font-bold text-brand-black mb-1">OPPO Find X10 Pro</h3>
+<p class="text-xs text-brand-gray mb-1">Ultra-Periskop · 5.500 mAh Akku</p>
+<p class="text-xs font-semibold text-brand-charcoal">UVP €1.199</p>
+</div>
+<button class="w-full mt-4 py-2.5 rounded-xl bg-oppo text-white font-semibold text-xs hover:bg-oppo-hover transition flex items-center justify-center space-x-1.5 shadow-sm" onclick="openProductShareModal('OPPO Find X10 Pro', '€50', 'https://oppo.com/at/ref/lukas123/find-x10-pro')">
+<i class="w-3.5 h-3.5" data-lucide="share-2"></i>
+<span>Link erstellen &amp; teilen</span>
+</button>
+</div>
+<!-- Product Card 3 -->
+<div class="bg-white rounded-2xl border border-surface-border p-5 flex flex-col justify-between hover:shadow-md transition">
+<div>
+<div class="flex justify-between items-start mb-3">
+<span class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-surface-card text-brand-gray">Standard</span>
+<span class="text-xs font-bold text-oppo bg-oppo-subtle px-2 py-0.5 rounded border border-oppo/20">+€40 Prämie</span>
+</div>
+<div class="h-28 bg-surface-card rounded-xl border border-surface-border flex flex-col items-center justify-center my-3 relative overflow-hidden">
+<div class="w-9 h-9 rounded-full border border-brand-gray/30 bg-white flex items-center justify-center">
+<div class="w-2.5 h-2.5 rounded-full bg-brand-gray"></div>
+</div>
+<span class="text-[10px] font-mono text-brand-gray mt-2 font-bold">FIND X10</span>
+</div>
+<h3 class="text-sm font-bold text-brand-black mb-1">OPPO Find X10</h3>
+<p class="text-xs text-brand-gray mb-1">AMOLED 120Hz · Hasselblad Triple Cam</p>
+<p class="text-xs font-semibold text-brand-charcoal">UVP €899</p>
+</div>
+<button class="w-full mt-4 py-2.5 rounded-xl bg-oppo text-white font-semibold text-xs hover:bg-oppo-hover transition flex items-center justify-center space-x-1.5 shadow-sm" onclick="openProductShareModal('OPPO Find X10', '€40', 'https://oppo.com/at/ref/lukas123/find-x10')">
+<i class="w-3.5 h-3.5" data-lucide="share-2"></i>
+<span>Link erstellen &amp; teilen</span>
+</button>
+</div>
+<!-- Product Card 4 -->
+<div class="bg-white rounded-2xl border border-surface-border p-5 flex flex-col justify-between hover:shadow-md transition">
+<div>
+<div class="flex justify-between items-start mb-3">
+<span class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-surface-card text-brand-gray">Mittelklasse</span>
+<span class="text-xs font-bold text-oppo bg-oppo-subtle px-2 py-0.5 rounded border border-oppo/20">+€30 Prämie</span>
+</div>
+<div class="h-28 bg-surface-card rounded-xl border border-surface-border flex flex-col items-center justify-center my-3 relative overflow-hidden">
+<div class="w-7 h-12 rounded bg-brand-black/10"></div>
+<span class="text-[10px] font-mono text-brand-gray mt-2 font-bold">RENO12 PRO</span>
+</div>
+<h3 class="text-sm font-bold text-brand-black mb-1">OPPO Reno12 Pro 5G</h3>
+<p class="text-xs text-brand-gray mb-1">GenAI Foto-Funktionen · Schlankes Design</p>
+<p class="text-xs font-semibold text-brand-charcoal">UVP €549</p>
+</div>
+<button class="w-full mt-4 py-2.5 rounded-xl bg-oppo text-white font-semibold text-xs hover:bg-oppo-hover transition flex items-center justify-center space-x-1.5 shadow-sm" onclick="openProductShareModal('OPPO Reno12 Pro 5G', '€30', 'https://oppo.com/at/ref/lukas123/reno12-pro')">
+<i class="w-3.5 h-3.5" data-lucide="share-2"></i>
+<span>Link erstellen &amp; teilen</span>
+</button>
+</div>
+</div>
+</div>
+<!-- ============================================== -->
+<!-- 4. WISSEN TAB (PC Structured Knowledge & AI)   -->
+<!-- ============================================== -->
+<div class="tab-content space-y-6" id="tab-knowledge">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-surface-border gap-3">
+<div>
+<h1 class="text-2xl lg:text-3xl font-bold tracking-tight text-brand-black">Wissenscenter &amp; Argumente</h1>
+<p class="text-sm text-brand-gray mt-1">Antworten auf häufige Fragen und fertige Textbausteine für Freunde.</p>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+<!-- Left: Quick AI Assistance & Query (5 cols) -->
+<div class="lg:col-span-5 space-y-4">
+<div class="p-6 rounded-2xl bg-white border border-surface-border shadow-sm">
+<label class="block text-xs font-bold uppercase tracking-wider text-brand-black mb-2 flex items-center space-x-2">
+<i class="w-4 h-4 text-oppo" data-lucide="sparkles"></i>
+<span>Verkaufsberater Schnell-Antwort</span>
+</label>
+<p class="text-xs text-brand-gray mb-3">Tippen Sie eine Frage ein, die Ihnen ein Freund gestellt hat:</p>
+<div class="flex space-x-2 mb-4">
+<input class="w-full text-xs px-3.5 py-2.5 rounded-xl bg-surface-subtle border border-surface-border text-brand-black focus:outline-none focus:border-oppo" id="aiQueryInput" placeholder="z. B. Welche Kamera hat das Find X10?" type="text" value="Welche Kamera hat das Find X10?"/>
+<button class="px-4 py-2.5 rounded-xl bg-brand-black text-white text-xs font-semibold hover:bg-black transition shrink-0" onclick="triggerAiAnswer()">
+                Fragen
+              </button>
+</div>
+<!-- Dynamic Answer Box -->
+<div class="p-4 rounded-xl bg-oppo-subtle border border-oppo/20" id="aiAnswerBox">
+<div class="flex items-center justify-between mb-1.5">
+<span class="text-[10px] font-bold text-oppo uppercase tracking-wider">Ergebnis</span>
+<button class="text-xs font-semibold text-brand-black hover:text-oppo flex items-center space-x-1" onclick="copyToClipboard('Das OPPO Find X10 bietet ein Hasselblad Kamerasystem mit 200 MP Telekamera, herausragender Nachtsicht und 4K Videoaufnahmen.', 'Antwort kopiert!')">
+<i class="w-3.5 h-3.5" data-lucide="copy"></i>
+<span>Text kopieren</span>
+</button>
+</div>
+<p class="text-xs text-brand-charcoal leading-relaxed" id="aiAnswerText">
+                Das OPPO Find X10 bietet ein Hasselblad Kamerasystem mit 200 MP Telekamera, herausragender Nachtsicht und verlustfreiem Zoom sowie 4K Ultra-HDR Video.
+              </p>
+</div>
+</div>
+</div>
+<!-- Right: 4 Detailed Knowledge Cards (7 cols) -->
+<div class="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
+<div class="p-5 rounded-2xl bg-white border border-surface-border shadow-sm flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="text-[10px] font-bold uppercase tracking-wider text-brand-gray">Warum OPPO?</span>
+<button class="text-xs font-semibold text-oppo hover:underline flex items-center space-x-1" onclick="copyToClipboard('OPPO steht für Premium-Qualität, bahnbrechende Hasselblad-Kamera-Innovationen und extrem langlebige Schnellladetechnik mit offiziellem österreichischem Support.', 'Argument kopiert')">
+<i class="w-3 h-3" data-lucide="copy"></i>
+<span>Kopieren</span>
+</button>
+</div>
+<h3 class="text-sm font-bold text-brand-black mb-1.5">Flaggschiff-Erlebnis</h3>
+<p class="text-xs text-brand-gray leading-relaxed">
+                „Eine kompromisslose Flaggschiff-Erfahrung mit marktführender Kamera, ultra-langer Akkulaufzeit und 3 Jahren Herstellergarantie in Österreich.“
+              </p>
+</div>
+</div>
+<div class="p-5 rounded-2xl bg-white border border-surface-border shadow-sm flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="text-[10px] font-bold uppercase tracking-wider text-brand-gray">Kamera &amp; Hasselblad</span>
+<button class="text-xs font-semibold text-oppo hover:underline flex items-center space-x-1" onclick="copyToClipboard('200 MP Telekamera, Hasselblad Imaging Engine und natürliche Porträtfarben in Studioqualität.', 'Kamera-Fakten kopiert')">
+<i class="w-3 h-3" data-lucide="copy"></i>
+<span>Kopieren</span>
+</button>
+</div>
+<h3 class="text-sm font-bold text-brand-black mb-1.5">Hasselblad Tele-System</h3>
+<p class="text-xs text-brand-gray leading-relaxed">
+                200 MP Telekamera mit Studio-Porträtmodus, verlustfreiem Zoom und 4K Dolby Vision Videoaufzeichnung.
+              </p>
+</div>
+</div>
+<div class="p-5 rounded-2xl bg-white border border-surface-border shadow-sm flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="text-[10px] font-bold uppercase tracking-wider text-brand-gray">Akku &amp; SUPERVOOC</span>
+<button class="text-xs font-semibold text-oppo hover:underline flex items-center space-x-1" onclick="copyToClipboard('In unter 25 Minuten vollgeladen dank 100W SUPERVOOC. Der Akku behält auch nach 4 Jahren über 80% Kapazität.', 'Akku-Text kopiert')">
+<i class="w-3 h-3" data-lucide="copy"></i>
+<span>Kopieren</span>
+</button>
+</div>
+<h3 class="text-sm font-bold text-brand-black mb-1.5">100W Schnellladen</h3>
+<p class="text-xs text-brand-gray leading-relaxed">
+                5.500 mAh Akku, 0 auf 100% in 24 Minuten, extrem langlebig und kälteresistent.
+              </p>
+</div>
+</div>
+<div class="p-5 rounded-2xl bg-white border border-surface-border shadow-sm flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="text-[10px] font-bold uppercase tracking-wider text-brand-gray">Service Österreich</span>
+<button class="text-xs font-semibold text-oppo hover:underline flex items-center space-x-1" onclick="copyToClipboard('Kostenloser Expressversand innerhalb Österreichs, 30 Tage Rückgaberecht und lokales Servicecenter in Wien.', 'Service-Info kopiert')">
+<i class="w-3 h-3" data-lucide="copy"></i>
+<span>Kopieren</span>
+</button>
+</div>
+<h3 class="text-sm font-bold text-brand-black mb-1.5">Lokaler Vor-Ort-Support</h3>
+<p class="text-xs text-brand-gray leading-relaxed">
+                3 Jahre Garantie, Reparaturservice in Wien sowie kostenloser Rückversand bei Store-Bestellungen.
+              </p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- ============================================== -->
+<!-- 5. KONTO & AUSZAHLUNG TAB (Desktop Account)    -->
+<!-- ============================================== -->
+<div class="tab-content space-y-6" id="tab-account">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-surface-border gap-3">
+<div>
+<h1 class="text-2xl lg:text-3xl font-bold tracking-tight text-brand-black">Konto &amp; Auszahlungsdaten</h1>
+<p class="text-sm text-brand-gray mt-1">Verwalten Sie Ihre Bankverbindung und persönlichen Einstellungen.</p>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+<!-- Profile Details (7 Cols) -->
+<div class="lg:col-span-7 bg-white rounded-2xl border border-surface-border p-6 shadow-sm space-y-6">
+<div class="flex items-center space-x-4">
+<div class="w-14 h-14 rounded-2xl bg-oppo text-white font-extrabold text-xl flex items-center justify-center font-mono">
+              LW
+            </div>
+<div>
+<h2 class="text-lg font-bold text-brand-black">Lukas Weber</h2>
+<p class="text-xs text-brand-gray">lukas.weber@example.at</p>
+<span class="inline-flex items-center space-x-1.5 text-xs font-semibold text-oppo bg-oppo-light px-2.5 py-0.5 rounded-full mt-1.5">
+<i class="w-3.5 h-3.5" data-lucide="shield-check"></i>
+<span>OPPO Kunde · Verifizierung optional</span>
+</span>
+</div>
+</div>
+<div class="border-t border-surface-border pt-4 divide-y divide-surface-border text-xs">
+<div class="py-3 flex justify-between items-center">
+<span class="text-brand-gray">Persönlicher Referral Code</span>
+<span class="font-mono font-bold text-brand-black bg-surface-card px-2.5 py-1 rounded border border-surface-border">LUKAS50</span>
+</div>
+<div class="py-3 flex justify-between items-center">
+<span class="text-brand-gray">Auszahlungskonto (IBAN Österreich)</span>
+<span class="font-mono text-brand-black font-semibold">AT89 3200 0000 8421 ****</span>
+</div>
+<div class="py-3 flex justify-between items-center">
+<span class="text-brand-gray">BIC / SWIFT</span>
+<span class="font-mono text-brand-black">GIBAATWW</span>
+</div>
+<div class="py-3 flex justify-between items-center">
+<span class="text-brand-gray">Registrierungsdatum</span>
+<span class="text-brand-black">15. Jänner 2025</span>
+</div>
+</div>
+<div class="pt-2 flex items-center space-x-3">
+<button class="px-5 py-2.5 rounded-xl bg-oppo text-white text-xs font-semibold hover:bg-oppo-hover transition shadow-sm" onclick="openPayoutModal()">
+              Auszahlung beauftragen
+            </button>
+<button class="px-4 py-2.5 rounded-xl bg-surface-card border border-surface-border text-xs font-semibold text-brand-black hover:bg-surface-border transition" onclick="showToast('Bankdaten sind auf dem aktuellen Stand')">
+              IBAN ändern
+            </button>
+</div>
+</div>
+<!-- Guidelines (5 Cols) -->
+<div class="lg:col-span-5 bg-white rounded-2xl border border-surface-border p-6 shadow-sm space-y-4">
+<h3 class="text-sm font-bold uppercase tracking-wider text-brand-black">Rechtliche Hinweise &amp; Auszahlungstermine</h3>
+<p class="text-xs text-brand-gray leading-relaxed">
+            Auszahlungen werden nach Ablauf der gesetzlichen 30-tägigen Rücktrittsfrist freigeschaltet. Sie können Ihr Guthaben jederzeit auf Ihr österreichisches Bankkonto überweisen oder in OPPO Store Gutscheine (+10% Mehrwert) umwandeln.
+          </p>
+<div class="p-4 rounded-xl bg-surface-card border border-surface-border text-xs text-brand-charcoal space-y-1.5">
+<div class="flex justify-between">
+<span class="text-brand-gray">Nächster Sammelüberweisungstag:</span>
+<span class="font-semibold text-brand-black">01. März 2025</span>
+</div>
+<div class="flex justify-between">
+<span class="text-brand-gray">Mindestauszahlungsbetrag:</span>
+<span class="font-semibold text-brand-black">€30,00</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- ============================================== -->
+<!-- MODAL: PRODUCT SHARE DIALOG                    -->
+<!-- ============================================== -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden" id="productShareModal">
+<div class="modal-backdrop fixed inset-0" onclick="closeProductShareModal()"></div>
+<div class="relative w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl z-10 border border-surface-border">
+<div class="flex items-center justify-between pb-3 border-b border-surface-border mb-4">
+<div>
+<span class="text-[10px] font-bold uppercase tracking-wider text-oppo">Produktempfehlung</span>
+<h2 class="text-base font-bold text-brand-black" id="modalProductName">OPPO Find X10 Pro</h2>
+</div>
+<button class="w-8 h-8 rounded-full bg-surface-card flex items-center justify-center text-brand-gray hover:text-brand-black" onclick="closeProductShareModal()">
+<i class="w-4 h-4" data-lucide="x"></i>
+</button>
+</div>
+<div class="p-3.5 rounded-xl bg-oppo-subtle border border-oppo/20 mb-4 flex justify-between items-center text-xs">
+<span class="text-brand-charcoal">Ihre Prämie bei Kaufabschluss:</span>
+<span class="text-base font-extrabold text-oppo" id="modalProductReward">€50</span>
+</div>
+<div class="mb-4">
+<label class="block text-xs font-semibold text-brand-gray mb-1.5">Direkter Produktlink:</label>
+<div class="flex items-center space-x-2">
+<input class="w-full text-xs px-3.5 py-2.5 rounded-xl bg-surface-subtle border border-surface-border font-mono text-brand-black select-all" id="modalProductLink" readonly="" type="text"/>
+<button class="px-4 py-2.5 rounded-xl bg-oppo text-white text-xs font-semibold hover:bg-oppo-hover transition shrink-0" onclick="copyProductLink()">
+            Kopieren
+          </button>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-2.5 pt-3 border-t border-surface-border">
+<button class="p-3 rounded-xl bg-surface-card hover:bg-surface-subtle border border-surface-border flex flex-col items-center text-center transition" onclick="shareProductVia('whatsapp')">
+<i class="w-4 h-4 text-[#25D366] mb-1" data-lucide="message-circle"></i>
+<span class="text-xs font-semibold text-brand-black">WhatsApp</span>
+</button>
+<button class="p-3 rounded-xl bg-surface-card hover:bg-surface-subtle border border-surface-border flex flex-col items-center text-center transition" onclick="shareProductVia('email')">
+<i class="w-4 h-4 text-brand-black mb-1" data-lucide="mail"></i>
+<span class="text-xs font-semibold text-brand-black">E-Mail</span>
+</button>
+<button class="p-3 rounded-xl bg-surface-card hover:bg-surface-subtle border border-surface-border flex flex-col items-center text-center transition" onclick="openQRModal()">
+<i class="w-4 h-4 text-oppo mb-1" data-lucide="qr-code"></i>
+<span class="text-xs font-semibold text-brand-black">QR-Code</span>
+</button>
+</div>
+</div>
+</div>
+<!-- ============================================== -->
+<!-- MODAL: QR CODE DISPLAY                         -->
+<!-- ============================================== -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden" id="qrModal">
+<div class="modal-backdrop fixed inset-0" onclick="closeQRModal()"></div>
+<div class="relative w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl z-10 border border-surface-border text-center">
+<div class="flex justify-between items-center mb-3">
+<span class="text-xs font-bold text-brand-black">QR-Code vorzeigen</span>
+<button class="w-7 h-7 rounded-full bg-surface-card flex items-center justify-center text-brand-gray hover:text-brand-black" onclick="closeQRModal()">
+<i class="w-4 h-4" data-lucide="x"></i>
+</button>
+</div>
+<div class="w-48 h-48 mx-auto p-4 rounded-2xl bg-white border border-surface-borderDark flex items-center justify-center my-3 shadow-inner">
+<svg class="w-full h-full" fill="none" viewbox="0 0 100 100">
+<rect fill="white" height="100" width="100"></rect>
+<rect fill="#121316" height="26" rx="4" width="26" x="10" y="10"></rect>
+<rect fill="white" height="18" rx="2" width="18" x="14" y="14"></rect>
+<rect fill="#008254" height="10" width="10" x="18" y="18"></rect>
+<rect fill="#121316" height="26" rx="4" width="26" x="64" y="10"></rect>
+<rect fill="white" height="18" rx="2" width="18" x="68" y="14"></rect>
+<rect fill="#008254" height="10" width="10" x="72" y="18"></rect>
+<rect fill="#121316" height="26" rx="4" width="26" x="10" y="64"></rect>
+<rect fill="white" height="18" rx="2" width="18" x="14" y="68"></rect>
+<rect fill="#008254" height="10" width="10" x="18" y="72"></rect>
+<circle cx="45" cy="20" fill="#121316" r="2.5"></circle>
+<circle cx="53" cy="20" fill="#121316" r="2.5"></circle>
+<circle cx="45" cy="28" fill="#121316" r="2.5"></circle>
+<circle cx="53" cy="36" fill="#121316" r="2.5"></circle>
+<circle cx="45" cy="45" fill="#008254" r="3"></circle>
+<circle cx="55" cy="45" fill="#121316" r="2.5"></circle>
+<circle cx="65" cy="45" fill="#121316" r="2.5"></circle>
+<circle cx="75" cy="55" fill="#121316" r="2.5"></circle>
+<circle cx="85" cy="65" fill="#121316" r="2.5"></circle>
+<circle cx="45" cy="65" fill="#121316" r="2.5"></circle>
+<circle cx="55" cy="75" fill="#121316" r="2.5"></circle>
+<circle cx="65" cy="75" fill="#121316" r="2.5"></circle>
+<circle cx="75" cy="85" fill="#121316" r="2.5"></circle>
+<circle cx="85" cy="85" fill="#121316" r="2.5"></circle>
+</svg>
+</div>
+<p class="font-mono text-xs font-bold text-brand-black mb-1">Code: LUKAS50</p>
+<p class="text-[11px] text-brand-gray">Vor Ort oder auf mobilen Geräten scannen lassen, um direkt im offiziellen OPPO Österreich Store einzukaufen.</p>
+</div>
+</div>
+<!-- ============================================== -->
+<!-- MODAL: PAYOUT / GUTHABEN ABHEBUNG              -->
+<!-- ============================================== -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden" id="payoutModal">
+<div class="modal-backdrop fixed inset-0" onclick="closePayoutModal()"></div>
+<div class="relative w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl z-10 border border-surface-border">
+<div class="flex items-center justify-between pb-3 border-b border-surface-border mb-4">
+<div>
+<span class="text-[10px] font-bold uppercase tracking-wider text-oppo">Auszahlungsantrag</span>
+<h2 class="text-base font-bold text-brand-black">Guthaben transferieren</h2>
+</div>
+<button class="w-8 h-8 rounded-full bg-surface-card flex items-center justify-center text-brand-gray hover:text-brand-black" onclick="closePayoutModal()">
+<i class="w-4 h-4" data-lucide="x"></i>
+</button>
+</div>
+<div class="p-4 rounded-xl bg-surface-card border border-surface-border text-center mb-4">
+<span class="text-xs text-brand-gray block mb-1">Aktuell verfügbares Bar-Guthaben:</span>
+<span class="text-3xl font-extrabold text-oppo">€300,00</span>
+</div>
+<div class="space-y-3 mb-5">
+<label class="flex items-center justify-between p-3.5 rounded-xl border border-oppo bg-oppo-subtle cursor-pointer">
+<div class="flex items-center space-x-3">
+<input checked="" class="accent-oppo" name="payoutType" type="radio"/>
+<div>
+<p class="text-xs font-bold text-brand-black">SEPA Banküberweisung</p>
+<p class="text-[11px] text-brand-gray">IBAN: AT89 **** 8421 (1-2 Werktage)</p>
+</div>
+</div>
+<i class="w-4 h-4 text-oppo" data-lucide="building"></i>
+</label>
+<label class="flex items-center justify-between p-3.5 rounded-xl border border-surface-border bg-white hover:border-brand-black cursor-pointer transition">
+<div class="flex items-center space-x-3">
+<input class="accent-oppo" name="payoutType" type="radio"/>
+<div>
+<p class="text-xs font-bold text-brand-black">OPPO Store AT Gutschein (+10% Bonus)</p>
+<p class="text-[11px] text-oppo font-semibold">Effektiver Wert: €330,00 für Neugeräte</p>
+</div>
+</div>
+<i class="w-4 h-4 text-brand-gray" data-lucide="gift"></i>
+</label>
+</div>
+<button class="w-full py-3.5 rounded-xl bg-oppo text-white text-xs font-semibold hover:bg-oppo-hover transition shadow-sm" onclick="confirmPayout()">
+        Auszahlung über €300 jetzt verbindlich absenden
+      </button>
+</div>
+</div>
+<!-- ============================================== -->
+<!-- MODAL: REGISTRATION MULTI-STEP FLOW            -->
+<!-- ============================================== -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden" id="registerModal">
+<div class="modal-backdrop fixed inset-0" onclick="closeRegisterModal()"></div>
+<div class="relative w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl z-10 border border-surface-border">
+<div class="flex items-center justify-between pb-3 border-b border-surface-border mb-4">
+<div>
+<span class="text-[10px] font-mono uppercase tracking-wider text-oppo font-bold">OPPO Referral Portal</span>
+<h2 class="text-base font-bold text-brand-black" id="regStepTitle">Schritt 1 von 3 · Registrierung</h2>
+</div>
+<button class="w-8 h-8 rounded-full bg-surface-card flex items-center justify-center text-brand-gray hover:text-brand-black" onclick="closeRegisterModal()">
+<i class="w-4 h-4" data-lucide="x"></i>
+</button>
+</div>
+<!-- Step Indicator Bar -->
+<div class="grid grid-cols-3 gap-1.5 mb-5">
+<div class="h-1 rounded-full bg-oppo transition-all" id="stepBar1"></div>
+<div class="h-1 rounded-full bg-surface-border transition-all" id="stepBar2"></div>
+<div class="h-1 rounded-full bg-surface-border transition-all" id="stepBar3"></div>
+</div>
+<!-- Step 1 -->
+<div class="space-y-3" id="regStep1">
+<div class="grid grid-cols-2 gap-2">
+<div>
+<label class="block text-[11px] font-medium text-brand-gray mb-1">Vorname</label>
+<input class="w-full text-xs px-3 py-2.5 rounded-xl border border-surface-borderDark focus:outline-none focus:border-oppo text-brand-black" id="regVorname" type="text" value="Lukas"/>
+</div>
+<div>
+<label class="block text-[11px] font-medium text-brand-gray mb-1">Nachname</label>
+<input class="w-full text-xs px-3 py-2.5 rounded-xl border border-surface-borderDark focus:outline-none focus:border-oppo text-brand-black" id="regNachname" type="text" value="Weber"/>
+</div>
+</div>
+<div>
+<label class="block text-[11px] font-medium text-brand-gray mb-1">E-Mail</label>
+<input class="w-full text-xs px-3 py-2.5 rounded-xl border border-surface-borderDark focus:outline-none focus:border-oppo text-brand-black" id="regEmail" type="email" value="lukas.weber@example.at"/>
+</div>
+<div>
+<label class="block text-[11px] font-medium text-brand-gray mb-1">Passwort</label>
+<input class="w-full text-xs px-3 py-2.5 rounded-xl border border-surface-borderDark focus:outline-none focus:border-oppo text-brand-black" id="regPassword" type="password" value="••••••••••••"/>
+</div>
+<button class="w-full mt-4 py-3 rounded-xl bg-oppo text-white text-xs font-semibold hover:bg-oppo-hover transition flex items-center justify-center space-x-1.5 shadow-sm" onclick="goToStep(2)">
+<span>Weiter</span>
+<i class="w-4 h-4" data-lucide="arrow-right"></i>
+</button>
+</div>
+<!-- Step 2 -->
+<div class="space-y-3 hidden" id="regStep2">
+<p class="text-xs font-semibold text-brand-black">Haben Sie bereits ein OPPO Smartphone in Österreich erworben?</p>
+<div class="grid grid-cols-2 gap-2">
+<label class="flex items-center space-x-2 p-3 rounded-xl border border-oppo bg-oppo-subtle cursor-pointer">
+<input checked="" class="accent-oppo" name="isOppoOwner" onchange="toggleOwnerFields(true)" type="radio" value="ja"/>
+<span class="text-xs font-bold text-brand-black">Ja</span>
+</label>
+<label class="flex items-center space-x-2 p-3 rounded-xl border border-surface-border bg-white cursor-pointer">
+<input class="accent-oppo" name="isOppoOwner" onchange="toggleOwnerFields(false)" type="radio" value="nein"/>
+<span class="text-xs font-medium text-brand-black">Nein</span>
+</label>
+</div>
+<div class="space-y-2 pt-1" id="ownerVerificationFields">
+<label class="block text-[11px] text-brand-gray">Bestellnummer (optional):</label>
+<input class="w-full text-xs px-3 py-2.5 rounded-xl border border-surface-borderDark focus:outline-none focus:border-oppo text-brand-black" id="regOwnerReference" placeholder="z. B. AT-OPPO-892147" type="text"/>
+</div>
+<div class="flex space-x-2 mt-4">
+<button class="w-1/3 py-3 rounded-xl bg-surface-card text-brand-black text-xs font-medium hover:bg-surface-border transition" onclick="goToStep(1)">
+            Zurück
+          </button>
+<button class="flex-1 py-3 rounded-xl bg-oppo text-white text-xs font-semibold hover:bg-oppo-hover transition flex items-center justify-center space-x-1.5 shadow-sm" onclick="goToStep(3)">
+<span>Weiter</span>
+<i class="w-4 h-4" data-lucide="arrow-right"></i>
+</button>
+</div>
+</div>
+<!-- Step 3 -->
+<div class="space-y-3 hidden" id="regStep3">
+<p class="text-xs text-brand-gray">Bestätigen Sie die Richtlinien für das österreichische Programm:</p>
+<label class="flex items-start space-x-2 text-xs text-brand-charcoal cursor-pointer">
+<input checked="" class="mt-0.5 accent-oppo" id="regTermsAccepted" type="checkbox"/>
+<span class="text-[11px] leading-snug">Ich akzeptiere die <strong>Teilnahmebedingungen</strong> des OPPO Referral Programms.</span>
+</label>
+<div class="p-3 rounded-xl bg-surface-card border border-surface-border text-xs text-brand-gray font-mono">
+          Ihr persönlicher Empfehlungscode: <strong class="text-brand-black">LUKAS50</strong>
+</div>
+<div class="flex space-x-2 mt-4">
+<button class="w-1/3 py-3 rounded-xl bg-surface-card text-brand-black text-xs font-medium hover:bg-surface-border transition" onclick="goToStep(2)">
+            Zurück
+          </button>
+<button class="flex-1 py-3 rounded-xl bg-oppo text-white text-xs font-semibold hover:bg-oppo-hover transition shadow-sm" onclick="completeRegistration()">
+            Konto erstellen &amp; fortfahren
+          </button>
+</div>
+</div>
+</div>
+</div>
+<!-- TOAST NOTIFICATION CONTAINER -->
+<div class="toast fixed bottom-8 right-8 z-50 bg-brand-black text-white px-4 py-3 rounded-xl text-xs font-semibold shadow-2xl flex items-center space-x-2.5 pointer-events-none" id="toastNotification">
+<div class="w-4 h-4 rounded-full bg-oppo flex items-center justify-center">
+<i class="w-2.5 h-2.5 text-white" data-lucide="check"></i>
+</div>
+<span id="toastMessage">Erfolgreich kopiert</span>
+</div>
+<!-- ============================================== -->
+<!-- JAVASCRIPT LOGIC & INTERACTIONS               -->
+<!-- ============================================== -->
+<script>
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    // Tab Switching Logic for Desktop Web
+    function switchTab(tabName) {
+      const tabs = ['overview', 'referrals', 'products', 'knowledge', 'account'];
+      tabs.forEach(t => {
+        const el = document.getElementById('tab-' + t);
+        if (el) el.classList.remove('active');
+        const navBtn = document.getElementById('nav-btn-' + t);
+        if (navBtn) {
+          navBtn.classList.remove('text-oppo', 'bg-oppo-subtle', 'font-semibold');
+          navBtn.classList.add('text-brand-gray');
+        }
+      });
+
+      const target = document.getElementById('tab-' + tabName);
+      if (target) {
+        target.classList.add('active');
+      }
+
+      const activeNavBtn = document.getElementById('nav-btn-' + tabName);
+      if (activeNavBtn) {
+        activeNavBtn.classList.add('text-oppo', 'bg-oppo-subtle', 'font-semibold');
+        activeNavBtn.classList.remove('text-brand-gray');
+      }
+
+      document.getElementById('guestLandingView').classList.add('hidden');
+      lucide.createIcons();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Language Selector Toggle
+    function toggleLangMenu() {
+      const menu = document.getElementById('langMenu');
+      menu.classList.toggle('hidden');
+    }
+
+    function selectLanguage(lang) {
+      document.getElementById('currentLangLabel').innerText = lang;
+      document.getElementById('langMenu').classList.add('hidden');
+      
+      const checkDE = document.getElementById('checkDE');
+      const checkEN = document.getElementById('checkEN');
+      if (lang === 'DE') {
+        checkDE.classList.remove('hidden');
+        checkEN.classList.add('hidden');
+        showToast('Sprache auf Deutsch (AT) eingestellt');
+      } else {
+        checkDE.classList.add('hidden');
+        checkEN.classList.remove('hidden');
+        showToast('Language switched to English');
+      }
+    }
+
+    // Close lang menu on outside click
+    document.addEventListener('click', function(e) {
+      const wrapper = document.getElementById('langDropdownWrapper');
+      if (wrapper && !wrapper.contains(e.target)) {
+        document.getElementById('langMenu').classList.add('hidden');
+      }
+    });
+
+    // Referral status filtering in referrals list
+    function filterReferrals(status) {
+      document.querySelectorAll('.referral-filter').forEach(btn => {
+        btn.classList.remove('bg-brand-black', 'text-white');
+        btn.classList.add('text-brand-gray');
+      });
+      const activeBtn = document.querySelector('.referral-filter.' + status);
+      if (activeBtn) {
+        activeBtn.classList.add('bg-brand-black', 'text-white');
+        activeBtn.classList.remove('text-brand-gray');
+      }
+
+      const rows = document.querySelectorAll('.referral-item');
+      rows.forEach(row => {
+        if (status === 'alle' || row.getAttribute('data-status') === status) {
+          row.style.display = 'table-row';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    }
+
+    // Copy to clipboard helper
+    function copyToClipboard(text, message) {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast(message || 'In die Zwischenablage kopiert');
+      }).catch(() => {
+        showToast('Kopiert: ' + text);
+      });
+    }
+
+    // Toast notification
+    function showToast(msg) {
+      const toast = document.getElementById('toastNotification');
+      const toastText = document.getElementById('toastMessage');
+      toastText.innerText = msg;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2500);
+    }
+
+    // Fast Share channels
+    function shareVia(channel) {
+      const link = 'https://oppo.com/at/ref/lukas123';
+      const text = encodeURIComponent('Entdecke die neuen OPPO Smartphones in Österreich und erhalte exklusive Rabatte mit meinem Link: ' + link);
+      if (channel === 'whatsapp') {
+        window.open('https://api.whatsapp.com/send?text=' + text, '_blank');
+      } else if (channel === 'email') {
+        window.location.href = 'mailto:?subject=' + encodeURIComponent('Exklusiver OPPO Österreich Vorteil') + '&body=' + text;
+      }
+    }
+
+    // Product Share Modal
+    let currentProductUrl = '';
+    function openProductShareModal(title, reward, url) {
+      document.getElementById('modalProductName').innerText = title;
+      document.getElementById('modalProductReward').innerText = reward;
+      document.getElementById('modalProductLink').value = url;
+      currentProductUrl = url;
+      document.getElementById('productShareModal').classList.remove('hidden');
+    }
+    function closeProductShareModal() {
+      document.getElementById('productShareModal').classList.add('hidden');
+    }
+    function copyProductLink() {
+      copyToClipboard(currentProductUrl, 'Produktlink kopiert');
+    }
+    function shareProductVia(channel) {
+      const text = encodeURIComponent('Empfehlung für das ' + document.getElementById('modalProductName').innerText + ': ' + currentProductUrl);
+      if (channel === 'whatsapp') {
+        window.open('https://api.whatsapp.com/send?text=' + text, '_blank');
+      } else if (channel === 'email') {
+        window.location.href = 'mailto:?subject=' + encodeURIComponent('OPPO Empfehlung') + '&body=' + text;
+      }
+    }
+
+    // Registration Modal
+    function openRegisterModal() {
+      goToStep(1);
+      document.getElementById('registerModal').classList.remove('hidden');
+    }
+    function closeRegisterModal() {
+      document.getElementById('registerModal').classList.add('hidden');
+    }
+    function goToStep(step) {
+      const titles = {
+        1: 'Schritt 1 von 3 · Registrierung',
+        2: 'Schritt 2 von 3 · OPPO Verifizierung',
+        3: 'Schritt 3 von 3 · Zustimmung'
+      };
+      document.getElementById('regStepTitle').innerText = titles[step];
+      document.getElementById('stepBar1').className = step >= 1 ? 'h-1 rounded-full bg-oppo transition-all' : 'h-1 rounded-full bg-surface-border transition-all';
+      document.getElementById('stepBar2').className = step >= 2 ? 'h-1 rounded-full bg-oppo transition-all' : 'h-1 rounded-full bg-surface-border transition-all';
+      document.getElementById('stepBar3').className = step >= 3 ? 'h-1 rounded-full bg-oppo transition-all' : 'h-1 rounded-full bg-surface-border transition-all';
+
+      document.getElementById('regStep1').classList.toggle('hidden', step !== 1);
+      document.getElementById('regStep2').classList.toggle('hidden', step !== 2);
+      document.getElementById('regStep3').classList.toggle('hidden', step !== 3);
+    }
+    function toggleOwnerFields(isOwner) {
+      document.getElementById('ownerVerificationFields').classList.toggle('hidden', !isOwner);
+    }
+    function completeRegistration() {
+      closeRegisterModal();
+      loginDemo();
+      showToast('Willkommen im OPPO Referral Portal Österreich!');
+    }
+
+    // QR Modal
+    function openQRModal() {
+      document.getElementById('qrModal').classList.remove('hidden');
+    }
+    function closeQRModal() {
+      document.getElementById('qrModal').classList.add('hidden');
+    }
+
+    // Payout Modal
+    function openPayoutModal() {
+      document.getElementById('payoutModal').classList.remove('hidden');
+    }
+    function closePayoutModal() {
+      document.getElementById('payoutModal').classList.add('hidden');
+    }
+    function confirmPayout() {
+      closePayoutModal();
+      showToast('Auszahlung über €300 erfolgreich eingereicht!');
+    }
+
+    // AI Query Search simulation
+    function triggerAiAnswer() {
+      const q = document.getElementById('aiQueryInput').value.trim();
+      const ansBox = document.getElementById('aiAnswerText');
+      if (q.toLowerCase().includes('akku') || q.toLowerCase().includes('laden')) {
+        ansBox.innerText = 'Das Find X10 lädt mit 100W SUPERVOOC in ca. 24 Minuten von 0 auf 100%. Der Akku hält selbst bei intensiver Nutzung bis zu 2 Tage.';
+      } else if (q.toLowerCase().includes('garantie') || q.toLowerCase().includes('österreich')) {
+        ansBox.innerText = 'In Österreich gilt für alle offiziell erworbenen OPPO Geräte eine 3-jährige Herstellergarantie mit lokalem Wiener Servicecenter.';
+      } else {
+        ansBox.innerText = 'Das OPPO Find X10 bietet ein Hasselblad Kamerasystem mit 200 MP Telekamera, herausragender Nachtsicht und 4K HDR Videoaufnahmen.';
+      }
+      showToast('Antwort generiert');
+    }
+
+    // Auth Simulation
+    function logoutDemo() {
+      const tabs = ['overview', 'referrals', 'products', 'knowledge', 'account'];
+      tabs.forEach(t => {
+        const el = document.getElementById('tab-' + t);
+        if (el) el.classList.remove('active');
+      });
+      document.getElementById('guestLandingView').classList.remove('hidden');
+      document.getElementById('authHeaderLoggedIn').classList.add('hidden');
+      document.getElementById('authHeaderGuest').classList.remove('hidden');
+      document.getElementById('authHeaderGuest').classList.add('flex');
+      showToast('Erfolgreich abgemeldet');
+    }
+
+    function loginDemo() {
+      document.getElementById('guestLandingView').classList.add('hidden');
+      document.getElementById('authHeaderGuest').classList.add('hidden');
+      document.getElementById('authHeaderGuest').classList.remove('flex');
+      document.getElementById('authHeaderLoggedIn').classList.remove('hidden');
+      switchTab('overview');
+    }
+  </script>
+<script src="/portal/i18n.js"></script>
+<script data-layout="desktop" src="/portal/referral-api.js"></script></body></html>
