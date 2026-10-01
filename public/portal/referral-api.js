@@ -272,10 +272,28 @@
 
   async function bootstrap() {
     try {
+      const session = await api('/api/auth/session');
+      if (session.role === 'admin') {
+        window.location.replace('/admin');
+        return;
+      }
+      if (session.role === 'employee') {
+        window.location.replace('/staff');
+        return;
+      }
       await loadDashboard();
     } catch (e) {
-      if (e.status === 401) setGuestUI();
-      else { console.error(e); setGuestUI(); toast('Daten konnten nicht geladen werden.'); }
+      if (e.status === 401) {
+        setGuestUI();
+        if (new URLSearchParams(window.location.search).get('staff') === '1') {
+          ensureLoginModal();
+          $('#realLoginModal')?.classList.remove('hidden');
+        }
+      } else {
+        console.error(e);
+        setGuestUI();
+        toast('Daten konnten nicht geladen werden.');
+      }
     }
   }
 
@@ -297,6 +315,10 @@
           <p id="loginError" class="hidden text-[11px] text-red-600"></p>
           <button type="submit" class="w-full py-3 rounded-xl bg-oppo text-white text-xs font-semibold hover:bg-oppo-hover">Anmelden</button>
           <button type="button" id="magicLinkLogin" class="w-full py-3 rounded-xl bg-surface-card text-brand-black text-xs font-semibold border border-surface-border">Magic Link per E-Mail senden</button>
+          <div class="pt-3 mt-3 border-t border-surface-border">
+            <p class="text-[10px] uppercase tracking-wider text-brand-gray font-semibold mb-2">OPPO Mitarbeiter / Admin</p>
+            <button type="button" id="staffMagicLinkLogin" class="w-full py-3 rounded-xl bg-brand-black text-white text-xs font-semibold">Mitarbeiter-Login per Magic Link</button>
+          </div>
         </form>
       </div>`;
     document.body.appendChild(wrapper);
@@ -305,8 +327,16 @@
       ev.preventDefault();
       const errorEl = $('#loginError'); errorEl.classList.add('hidden');
       try {
-        await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: $('#loginEmail').value.trim(), password: $('#loginPassword').value }) });
+        const result = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: $('#loginEmail').value.trim(), password: $('#loginPassword').value }) });
         wrapper.classList.add('hidden');
+        if (result.role === 'admin') {
+          window.location.assign('/admin');
+          return;
+        }
+        if (result.role === 'employee') {
+          window.location.assign('/staff');
+          return;
+        }
         await loadDashboard();
         toast('Erfolgreich angemeldet.');
       } catch (e) { errorEl.textContent = e.message; errorEl.classList.remove('hidden'); }
@@ -316,6 +346,15 @@
       if (!email) return toast('Bitte zuerst Ihre E-Mail eingeben.');
       try { await api('/api/auth/magic-link', { method: 'POST', body: JSON.stringify({ email }) }); toast('Magic Link wurde per E-Mail gesendet.'); wrapper.classList.add('hidden'); }
       catch (e) { toast(e.message); }
+    });
+    $('#staffMagicLinkLogin').addEventListener('click', async () => {
+      const email = $('#loginEmail').value.trim();
+      if (!email) return toast('Bitte zuerst Ihre E-Mail eingeben.');
+      try {
+        await api('/api/auth/magic-link', { method: 'POST', body: JSON.stringify({ email, staff: true }) });
+        toast('Mitarbeiter Magic Link wurde per E-Mail gesendet.');
+        wrapper.classList.add('hidden');
+      } catch (e) { toast(e.message); }
     });
   }
 
