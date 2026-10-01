@@ -7,7 +7,18 @@
   const attrOriginals = new WeakMap();
   const lastRendered = new WeakMap();
   let applying = false;
-  let current = normalize(localStorage.getItem(STORAGE_KEY) || 'de');
+
+  function readStoredLanguage() {
+    try { return localStorage.getItem(STORAGE_KEY) || 'de'; }
+    catch (_) { return 'de'; }
+  }
+
+  function storeLanguage(value) {
+    try { localStorage.setItem(STORAGE_KEY, value); }
+    catch (_) { /* storage can be blocked; language switching must still work */ }
+  }
+
+  let current = normalize(readStoredLanguage());
 
   const translations = {
     en: {
@@ -632,6 +643,31 @@
     select.addEventListener('change', () => setLanguage(select.value));
   }
 
+  function bindLanguageControls() {
+    const pairs = [
+      ['checkDE', 'de'],
+      ['checkEN', 'en'],
+      ['checkZH', 'zh']
+    ];
+    pairs.forEach(([checkId, lang]) => {
+      const button = document.getElementById(checkId)?.closest('button');
+      if (!button || button.dataset.i18nBound === '1') return;
+      button.dataset.i18nBound = '1';
+      button.onclick = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setLanguage(lang);
+        document.getElementById('langMenu')?.classList.add('hidden');
+      };
+    });
+
+    const mobile = document.querySelector('#mobileLanguageSelector select');
+    if (mobile && mobile.dataset.i18nBound !== '1') {
+      mobile.dataset.i18nBound = '1';
+      mobile.addEventListener('change', () => setLanguage(mobile.value));
+    }
+  }
+
   function updateControls() {
     const label = document.getElementById('currentLangLabel');
     if (label) label.textContent = current === 'zh' ? '中文' : current.toUpperCase();
@@ -647,9 +683,10 @@
   function setLanguage(lang) {
     const next = normalize(lang);
     current = next;
-    localStorage.setItem(STORAGE_KEY, next);
+    storeLanguage(next);
     ensureChineseDesktopOption();
     ensureMobileSelector();
+    bindLanguageControls();
     apply(document, next);
     updateControls();
     document.dispatchEvent(new CustomEvent('oppo:languagechange', { detail: { language: next } }));
@@ -681,6 +718,7 @@
   function init() {
     ensureChineseDesktopOption();
     ensureMobileSelector();
+    bindLanguageControls();
     apply(document, current);
     updateControls();
     observer.observe(document.body, { subtree: true, childList: true, characterData: true });
