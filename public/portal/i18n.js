@@ -243,7 +243,10 @@
       'Auszahlung ist in V1 noch nicht aktiviert. Ihr bestätigtes Guthaben bleibt im Konto sichtbar.': 'Payout is not enabled in V1. Your confirmed reward remains visible in your account.',
       'Daten konnten nicht geladen werden.': 'Could not load data.',
       'Anmelden': 'Sign in',
-      'Magic Link per E-Mail senden': 'Send magic link by email'
+      'Magic Link per E-Mail senden': 'Send magic link by email',
+      'OPPO Mitarbeiter / Admin': 'OPPO Staff / Admin',
+      'Mitarbeiter-Login per Magic Link': 'Staff sign-in via magic link',
+      'Mitarbeiter Magic Link wurde per E-Mail gesendet.': 'Staff magic link sent by email.'
     },
     zh: {
       'Übersicht': '概览',
@@ -466,7 +469,10 @@
       'QR-Code wird nach der finalen Produktionsfreigabe aktiviert.': '二维码功能将在正式上线后启用。',
       'Auszahlung ist in V1 noch nicht aktiviert. Ihr bestätigtes Guthaben bleibt im Konto sichtbar.': 'V1 暂未启用真实提现，已确认奖励会继续显示在账户中。',
       'Daten konnten nicht geladen werden.': '数据加载失败。',
-      'Magic Link per E-Mail senden': '通过邮件发送 Magic Link'
+      'Magic Link per E-Mail senden': '通过邮件发送 Magic Link',
+      'OPPO Mitarbeiter / Admin': 'OPPO 员工 / 管理员',
+      'Mitarbeiter-Login per Magic Link': '员工 / 管理员 Magic Link 登录',
+      'Mitarbeiter Magic Link wurde per E-Mail gesendet.': '员工 / 管理员 Magic Link 已发送到邮箱。'
     }
   };
 
