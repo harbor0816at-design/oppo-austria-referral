@@ -427,7 +427,7 @@
       setGuestUI();
       return;
     }
-    $('.tab-content').forEach(el => el.style.removeProperty('display'));
+    $$('.tab-content').forEach(el => el.style.removeProperty('display'));
     if (typeof original.switchTab === 'function') original.switchTab(tabName);
   };
 
