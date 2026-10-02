@@ -846,6 +846,43 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
         <main style={{padding:24,minWidth:0}}>
           {error ? <div style={{marginBottom:16,padding:12,borderRadius:10,background:"#fff1f2",color:"#b42318"}}>{error}</div> : null}
           {views[tab]}
+          {agreementDetail ? <div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:18}}>
+            <div style={{width:"min(900px,96vw)",maxHeight:"92vh",overflow:"auto",background:"#fff",borderRadius:18,boxShadow:"0 20px 70px rgba(0,0,0,.22)"}}>
+              <div style={{padding:"18px 20px",borderBottom:"1px solid #e9ecef",display:"flex",justifyContent:"space-between",gap:16,alignItems:"flex-start"}}>
+                <div>
+                  <div style={{fontSize:11,color:"#008254",fontWeight:900,textTransform:"uppercase"}}>{agreementDetail.template_version}</div>
+                  <h2 style={{margin:"5px 0 0"}}>{agreementDetail.title_snapshot}</h2>
+                </div>
+                <button style={secondary} onClick={()=>setAgreementDetail(null)}>✕</button>
+              </div>
+              <div style={{padding:20}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,fontSize:13,marginBottom:16}}>
+                  <div><b>{lang==="zh"?"签署人":lang==="en"?"Signer":"Unterzeichner"}:</b> {agreementDetail.signer_name}</div>
+                  <div><b>E-Mail:</b> {agreementDetail.signer_email}</div>
+                  <div><b>{lang==="zh"?"状态":lang==="en"?"Status":"Status"}:</b> {agreementDetail.status}</div>
+                  <div><b>{lang==="zh"?"签署时间":lang==="en"?"Signed":"Unterzeichnet"}:</b> {new Date(agreementDetail.signed_at).toLocaleString()}</div>
+                </div>
+                <div style={{border:"1px solid #dfe3e7",borderRadius:10,padding:24,minHeight:220,whiteSpace:"pre-wrap",lineHeight:1.7,fontSize:13}}>
+                  {agreementDetail.content_snapshot}
+                </div>
+                <div style={{marginTop:16}}>
+                  <div style={{fontSize:12,fontWeight:800,marginBottom:7}}>{lang==="zh"?"电子签名":lang==="en"?"Signature":"Unterschrift"}</div>
+                  <div style={{border:"1px solid #dfe3e7",borderRadius:10,padding:10,background:"#fafafa"}}>
+                    <img src={agreementDetail.signature_url} alt="signature" style={{width:"100%",height:150,objectFit:"contain",background:"#fff",borderRadius:7}}/>
+                  </div>
+                </div>
+                {agreementDetail.content_hash ? <div style={{fontFamily:"monospace",fontSize:10,color:"#69707d",wordBreak:"break-all",marginTop:12}}>SHA-256: {agreementDetail.content_hash}</div> : null}
+                <div style={{marginTop:16}}>
+                  <label style={label}>{lang==="zh"?"审核备注":lang==="en"?"Review note":"Prüfnotiz"}</label>
+                  <textarea style={{...input,minHeight:80}} value={agreementNote} onChange={e=>setAgreementNote(e.target.value)}/>
+                </div>
+                {agreementDetail.status==="submitted" ? <div style={{display:"flex",gap:10,marginTop:16}}>
+                  <button style={primary} disabled={!!busy} onClick={()=>void reviewAgreement(agreementDetail.id,"approved")}>{lang==="zh"?"审核通过":lang==="en"?"Approve":"Freigeben"}</button>
+                  <button style={danger} disabled={!!busy} onClick={()=>void reviewAgreement(agreementDetail.id,"rejected")}>{lang==="zh"?"拒绝":lang==="en"?"Reject":"Ablehnen"}</button>
+                </div> : null}
+              </div>
+            </div>
+          </div> : null}
         </main>
       </div>
     </div>
