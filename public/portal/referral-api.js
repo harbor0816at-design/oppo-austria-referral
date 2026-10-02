@@ -84,7 +84,7 @@
     if (logged) { logged.classList.remove('hidden'); logged.classList.add('flex'); }
     const guestHeader = $('#authHeaderGuest');
     if (guestHeader) { guestHeader.classList.add('hidden'); guestHeader.classList.remove('flex'); }
-    $$$('.tab-content').forEach(el => { el.style.display = ''; });
+    $('.tab-content').forEach(el => { el.style.display = ''; });
     if (typeof original.switchTab === 'function') original.switchTab('overview');
   }
 
