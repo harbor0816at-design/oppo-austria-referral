@@ -94,7 +94,23 @@ Deno.serve(async(req)=>{
       const x=await admin.from('consent_logs').insert({user_id:user.id,consent_type:String(p.consentType||'referral_terms'),consent_version:String(p.consentVersion||'v1'),granted:p.granted!==false});if(x.error&&x.error.code!=='23505')throw x.error;return json({success:true,data:{logged:true}})
     }
 
-    const isAdmin=user.app_metadata?.role==='admin';if(!isAdmin)return json({success:false,error:{code:'FORBIDDEN'}},403)
+    const role=String(user.app_metadata?.role||'');const isAdmin=['admin','super_admin'].includes(role);if(!isAdmin)return json({success:false,error:{code:'FORBIDDEN'}},403)
+    if(action==='admin_list_admins'){
+      if(role!=='super_admin')return json({success:false,error:{code:'FORBIDDEN'}},403)
+      const listed=await admin.auth.admin.listUsers({page:1,perPage:1000});if(listed.error)throw listed.error
+      const rows=(listed.data.users||[]).filter((u:any)=>['admin','super_admin'].includes(String(u.app_metadata?.role||''))).map((u:any)=>({id:u.id,email:u.email,role:u.app_metadata?.role||'admin',created_at:u.created_at,last_sign_in_at:u.last_sign_in_at||null}))
+      return json({success:true,data:rows})
+    }
+    if(action==='superadmin_create_admin'){
+      if(role!=='super_admin')return json({success:false,error:{code:'FORBIDDEN'}},403)
+      const email=String(p.email||'').trim().toLowerCase();const password=String(p.password||'');const firstName=String(p.firstName||'').trim();const lastName=String(p.lastName||'').trim()
+      if(!/^\\S+@\\S+\\.\\S+$/.test(email)||password.length<12)return json({success:false,error:{code:'VALIDATION_ERROR',message:'Valid email and password of at least 12 characters required'}},422)
+      const created=await admin.auth.admin.createUser({email,password,email_confirm:true,app_metadata:{role:'admin'},user_metadata:{first_name:firstName,last_name:lastName,country:'AT',language:'de'}});if(created.error)throw created.error
+      const u=created.data.user
+      await admin.from('profiles').upsert({id:u.id,email:u.email,first_name:firstName||null,last_name:lastName||null,country:'AT',language:'de',status:'active',updated_at:new Date().toISOString()},{onConflict:'id'})
+      await admin.from('audit_logs').insert({admin_user_id:user.id,action:'admin.create',entity_type:'auth_user',entity_id:u.id,new_value:{email:u.email,role:'admin'}})
+      return json({success:true,data:{id:u.id,email:u.email,role:'admin',created_at:u.created_at}})
+    }
     if(action==='admin_program_snapshot'){
       const products=await admin.from('referral_products').select('*').order('sort_order',{ascending:true});if(products.error)throw products.error
       const assets=await admin.from('marketing_assets').select('*').order('sort_order',{ascending:true});if(assets.error)throw assets.error
