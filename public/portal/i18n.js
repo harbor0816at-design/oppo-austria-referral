@@ -492,7 +492,27 @@
       'Magic Link per E-Mail senden': '通过邮件发送 Magic Link',
       'OPPO Mitarbeiter / Admin': 'OPPO 员工 / 管理员',
       'Mitarbeiter-Login per Magic Link': '员工 / 管理员 Magic Link 登录',
-      'Mitarbeiter Magic Link wurde per E-Mail gesendet.': '员工 / 管理员 Magic Link 已发送到邮箱。'
+      'Mitarbeiter Magic Link wurde per E-Mail gesendet.': '员工 / 管理员 Magic Link 已发送到邮箱。',
+      'Passwort wiederholen': '再次输入密码',
+      'Bestätigungs-E-Mail erneut senden': '重新发送验证邮件',
+      'Meine Empfehlungsprämie': '我的推荐收益',
+      'Gesamt verdient': '累计获得',
+      'Offen': '待确认',
+      'Erfolgreiche Empfehlungen': '成功推荐',
+      'Mein Empfehlungslink': '我的推荐链接',
+      'Produkte & Empfehlungsprämien': '产品与推荐返利',
+      'Sie sehen vor dem Teilen genau, wie hoch Ihre Prämie je Modell ist.': '分享前即可查看每个机型对应的推荐返利。',
+      'Vorteil für Freund': '好友优惠',
+      'Empfehlung kopieren': '复制推荐内容',
+      'Werbematerial zum direkten Teilen': '可直接分享的宣传素材',
+      'Ein Klick kopiert die fertige Vorlage inklusive Ihres persönlichen Empfehlungslinks.': '一键复制完整宣传文案，并自动带上你的专属推荐链接。',
+      'Alles kopieren': '一键复制',
+      'Material öffnen': '打开素材',
+      'Noch keine Werbematerialien verfügbar.': '暂无宣传素材。',
+      'Die beiden Passwörter stimmen nicht überein.': '两次输入的密码不一致。',
+      'Registrierung erfolgreich. Bestätigungs-E-Mail wurde gesendet.': '注册成功，验证邮件已发送。',
+      'Werbematerial kopiert.': '宣传素材已复制。',
+      'Produktempfehlung kopiert.': '产品推荐内容已复制。'
     }
   };
 
