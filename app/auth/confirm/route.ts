@@ -54,6 +54,12 @@ export async function GET(request: Request) {
     const store = await cookies();
     const user = session.user;
 
+    await callReferralEdgeWithToken(
+      session.access_token,
+      "get_or_create_referrer",
+      {},
+    ).catch(() => undefined);
+
     if (requestedNext === "/staff" && user.app_metadata?.role === "admin") {
       next = "/admin";
     }
