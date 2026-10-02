@@ -471,7 +471,6 @@
           <p id="loginError" class="hidden text-[11px] text-red-600"></p>
           <button type="submit" class="w-full py-3 rounded-xl bg-oppo text-white text-xs font-semibold hover:bg-oppo-hover">Anmelden</button>
           <button type="button" id="resendConfirmation" class="w-full py-2.5 rounded-xl bg-white text-brand-gray text-[11px] font-semibold border border-surface-border">Bestätigungs-E-Mail erneut senden</button>
-          <button type="button" id="magicLinkLogin" class="w-full py-3 rounded-xl bg-surface-card text-brand-black text-xs font-semibold border border-surface-border">Magic Link per E-Mail senden</button>
           <div class="pt-3 mt-3 border-t border-surface-border">
             <p class="text-[10px] uppercase tracking-wider text-brand-gray font-semibold mb-1">OPPO Mitarbeiter / Admin</p>
             <p class="text-[11px] text-brand-gray leading-relaxed">Mitarbeiter und Administratoren melden sich ebenfalls oben mit E-Mail und Passwort an.</p>
@@ -514,12 +513,6 @@
         info.textContent = 'Bestätigungs-E-Mail wurde erneut gesendet. Bitte prüfen Sie auch Ihren Spam-Ordner.';
         info.classList.remove('hidden');
       } catch (e) { toast(e.message); }
-    });
-    $('#magicLinkLogin').addEventListener('click', async () => {
-      const email = $('#loginEmail').value.trim();
-      if (!email) return toast('Bitte zuerst Ihre E-Mail eingeben.');
-      try { await api('/api/auth/magic-link', { method: 'POST', body: JSON.stringify({ email }) }); toast('Magic Link wurde per E-Mail gesendet.'); wrapper.classList.add('hidden'); }
-      catch (e) { toast(e.message); }
     });
   }
 
