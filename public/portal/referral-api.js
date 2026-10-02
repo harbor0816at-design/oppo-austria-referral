@@ -563,7 +563,7 @@
     }
     try {
       const result = await api('/api/auth/register', { method: 'POST', body: JSON.stringify({
-        email, password, firstName, lastName, country: 'AT', language: 'de', mode: 'password', termsAccepted,
+        email, password, passwordConfirm, firstName, lastName, country: 'AT', language: 'de', mode: 'password', termsAccepted,
         ownerVerificationReference: $('#regOwnerReference')?.value?.trim() || undefined,
       })});
       if (typeof original.closeRegisterModal === 'function') original.closeRegisterModal();
