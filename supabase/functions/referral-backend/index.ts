@@ -163,7 +163,7 @@ Deno.serve(async(req)=>{
     if(action==='superadmin_create_admin'){
       if(role!=='super_admin')return json({success:false,error:{code:'FORBIDDEN'}},403)
       const email=String(p.email||'').trim().toLowerCase();const password=String(p.password||'');const firstName=String(p.firstName||'').trim();const lastName=String(p.lastName||'').trim()
-      if(!/^\\S+@\\S+\\.\\S+$/.test(email)||password.length<12)return json({success:false,error:{code:'VALIDATION_ERROR',message:'Valid email and password of at least 12 characters required'}},422)
+      if(!/^\S+@\S+\.\S+$/.test(email)||password.length<12)return json({success:false,error:{code:'VALIDATION_ERROR',message:'Valid email and password of at least 12 characters required'}},422)
       const created=await admin.auth.admin.createUser({email,password,email_confirm:true,app_metadata:{role:'admin'},user_metadata:{first_name:firstName,last_name:lastName,country:'AT',language:'de'}});if(created.error)throw created.error
       const u=created.data.user
       await admin.from('profiles').upsert({id:u.id,email:u.email,first_name:firstName||null,last_name:lastName||null,country:'AT',language:'de',status:'active',updated_at:new Date().toISOString()},{onConflict:'id'})
