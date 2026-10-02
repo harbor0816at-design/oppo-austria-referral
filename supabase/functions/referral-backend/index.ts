@@ -16,6 +16,19 @@ const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,
 function maskEmail(email?:string|null){if(!email)return null;const [local,domain]=email.toLowerCase().split('@');if(!domain)return null;return `${local.slice(0,1)}***@${domain}`}
 function makeCode(){const b=crypto.getRandomValues(new Uint8Array(7));return Array.from(b,x=>codeAlphabet[x%codeAlphabet.length]).join('')}
 function normalizeCode(v:string){return v.trim().toUpperCase().replace(/[^A-Z0-9]/g,'')}
+function normalizeIban(v:string){return v.toUpperCase().replace(/\s+/g,'')}
+function maskIban(v?:string|null){if(!v)return null;const x=normalizeIban(v);return x.length>8?`${x.slice(0,4)} **** **** ${x.slice(-4)}`:x}
+function validIban(v:string){
+  const iban=normalizeIban(v)
+  if(!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(iban))return false
+  const moved=iban.slice(4)+iban.slice(0,4)
+  let mod=0
+  for(const ch of moved){
+    const part=/[A-Z]/.test(ch)?String(ch.charCodeAt(0)-55):ch
+    for(const d of part)mod=(mod*10+Number(d))%97
+  }
+  return mod===1
+}
 
 async function authenticated(req:Request){
   const h=req.headers.get('authorization')||''
@@ -93,6 +106,52 @@ Deno.serve(async(req)=>{
     if(action==='log_consent'){
       const x=await admin.from('consent_logs').insert({user_id:user.id,consent_type:String(p.consentType||'referral_terms'),consent_version:String(p.consentVersion||'v1'),granted:p.granted!==false});if(x.error&&x.error.code!=='23505')throw x.error;return json({success:true,data:{logged:true}})
     }
+    if(action==='member_get_payout'){
+      const account=await admin.from('payout_accounts').select('id,account_holder,iban,bic,country,updated_at').eq('user_id',user.id).maybeSingle();if(account.error)throw account.error
+      const requests=await admin.from('payout_requests').select('id,amount,currency,payout_method,status,requested_at,approved_at,paid_at,rejected_at,admin_note').eq('user_id',user.id).order('requested_at',{ascending:false}).limit(100);if(requests.error)throw requests.error
+      const rewards=await admin.from('rewards').select('id,reward_amount,currency,status').eq('user_id',user.id).in('status',['approved','available']);if(rewards.error)throw rewards.error
+      const activeReq=await admin.from('payout_requests').select('id').eq('user_id',user.id).in('status',['requested','approved']);if(activeReq.error)throw activeReq.error
+      const activeIds=(activeReq.data||[]).map((x:any)=>x.id)
+      let reservedIds=new Set<string>()
+      if(activeIds.length){const links=await admin.from('payout_request_rewards').select('reward_id').in('payout_request_id',activeIds);if(links.error)throw links.error;reservedIds=new Set((links.data||[]).map((x:any)=>x.reward_id))}
+      const eligible=(rewards.data||[]).filter((x:any)=>!reservedIds.has(x.id))
+      const withdrawable=eligible.reduce((s:number,x:any)=>s+Number(x.reward_amount||0),0)
+      return json({success:true,data:{
+        account:account.data?{id:account.data.id,accountHolder:account.data.account_holder,ibanMasked:maskIban(account.data.iban),bic:account.data.bic,country:account.data.country,updatedAt:account.data.updated_at}:null,
+        withdrawable,
+        requests:requests.data||[]
+      }})
+    }
+    if(action==='member_save_payout_account'){
+      const existing=await admin.from('payout_accounts').select('*').eq('user_id',user.id).maybeSingle();if(existing.error)throw existing.error
+      const holder=String(p.accountHolder||existing.data?.account_holder||'').trim()
+      const candidate=String(p.iban||'').trim()
+      const iban=normalizeIban(candidate||existing.data?.iban||'')
+      const bic=String(p.bic??existing.data?.bic??'').toUpperCase().replace(/\s+/g,'').trim()||null
+      if(holder.length<2||!validIban(iban))return json({success:false,error:{code:'VALIDATION_ERROR',message:'Invalid account holder or IBAN'}},422)
+      if(bic&&!/^[A-Z0-9]{8}([A-Z0-9]{3})?$/.test(bic))return json({success:false,error:{code:'VALIDATION_ERROR',message:'Invalid BIC'}},422)
+      const row={user_id:user.id,account_holder:holder,iban,bic,country:String(p.country||existing.data?.country||iban.slice(0,2)||'AT').slice(0,2).toUpperCase(),updated_at:new Date().toISOString()}
+      const saved=await admin.from('payout_accounts').upsert(row,{onConflict:'user_id'}).select('id,account_holder,iban,bic,country,updated_at').single();if(saved.error)throw saved.error
+      await admin.from('audit_logs').insert({admin_user_id:user.id,action:'payout_account.update',entity_type:'payout_account',entity_id:saved.data.id,new_value:{account_holder:saved.data.account_holder,iban_masked:maskIban(saved.data.iban),bic:saved.data.bic}})
+      return json({success:true,data:{id:saved.data.id,accountHolder:saved.data.account_holder,ibanMasked:maskIban(saved.data.iban),bic:saved.data.bic,country:saved.data.country,updatedAt:saved.data.updated_at}})
+    }
+    if(action==='member_create_payout_request'){
+      const account=await admin.from('payout_accounts').select('id').eq('user_id',user.id).maybeSingle();if(account.error)throw account.error;if(!account.data)return json({success:false,error:{code:'PAYOUT_ACCOUNT_REQUIRED',message:'Bank account required'}},409)
+      const activeReq=await admin.from('payout_requests').select('id').eq('user_id',user.id).in('status',['requested','approved']);if(activeReq.error)throw activeReq.error
+      const activeIds=(activeReq.data||[]).map((x:any)=>x.id)
+      let reservedIds=new Set<string>()
+      if(activeIds.length){const links=await admin.from('payout_request_rewards').select('reward_id').in('payout_request_id',activeIds);if(links.error)throw links.error;reservedIds=new Set((links.data||[]).map((x:any)=>x.reward_id))}
+      const rewards=await admin.from('rewards').select('id,reward_amount,currency,status').eq('user_id',user.id).in('status',['approved','available']).order('created_at',{ascending:true});if(rewards.error)throw rewards.error
+      const eligible=(rewards.data||[]).filter((x:any)=>!reservedIds.has(x.id))
+      const amount=eligible.reduce((s:number,x:any)=>s+Number(x.reward_amount||0),0)
+      if(amount<=0)return json({success:false,error:{code:'NO_WITHDRAWABLE_BALANCE',message:'No withdrawable balance'}},409)
+      const currency=String(eligible[0]?.currency||'EUR')
+      const created=await admin.from('payout_requests').insert({user_id:user.id,amount,currency,payout_method:'bank_transfer',payout_account_id:account.data.id,status:'requested'}).select('*').single();if(created.error)throw created.error
+      const linkRows=eligible.map((x:any)=>({payout_request_id:created.data.id,reward_id:x.id,amount:Number(x.reward_amount||0)}))
+      if(linkRows.length){const links=await admin.from('payout_request_rewards').insert(linkRows);if(links.error)throw links.error}
+      await admin.from('audit_logs').insert({admin_user_id:user.id,action:'payout.request',entity_type:'payout_request',entity_id:created.data.id,new_value:{amount,currency,status:'requested'}})
+      return json({success:true,data:created.data},201)
+    }
 
     const role=String(user.app_metadata?.role||'');const isAdmin=['admin','super_admin'].includes(role);if(!isAdmin)return json({success:false,error:{code:'FORBIDDEN'}},403)
     if(action==='admin_list_admins'){
@@ -110,6 +169,39 @@ Deno.serve(async(req)=>{
       await admin.from('profiles').upsert({id:u.id,email:u.email,first_name:firstName||null,last_name:lastName||null,country:'AT',language:'de',status:'active',updated_at:new Date().toISOString()},{onConflict:'id'})
       await admin.from('audit_logs').insert({admin_user_id:user.id,action:'admin.create',entity_type:'auth_user',entity_id:u.id,new_value:{email:u.email,role:'admin'}})
       return json({success:true,data:{id:u.id,email:u.email,role:'admin',created_at:u.created_at}})
+    }
+    if(action==='admin_list_payouts'){
+      const reqs=await admin.from('payout_requests').select('*').order('requested_at',{ascending:false}).limit(1000);if(reqs.error)throw reqs.error
+      const userIds=[...new Set((reqs.data||[]).map((x:any)=>x.user_id))]
+      const accountIds=[...new Set((reqs.data||[]).map((x:any)=>x.payout_account_id).filter(Boolean))]
+      const profiles=userIds.length?await admin.from('profiles').select('id,email,first_name,last_name').in('id',userIds):{data:[],error:null} as any;if(profiles.error)throw profiles.error
+      const accounts=accountIds.length?await admin.from('payout_accounts').select('id,account_holder,iban,bic').in('id',accountIds):{data:[],error:null} as any;if(accounts.error)throw accounts.error
+      const pm=new Map((profiles.data||[]).map((x:any)=>[x.id,x])),am=new Map((accounts.data||[]).map((x:any)=>[x.id,x]))
+      return json({success:true,data:(reqs.data||[]).map((x:any)=>{const p0:any=pm.get(x.user_id)||{},a:any=am.get(x.payout_account_id)||{};return {...x,email:p0.email||null,name:[p0.first_name,p0.last_name].filter(Boolean).join(' '),account_holder:a.account_holder||null,iban_masked:maskIban(a.iban),bic:a.bic||null}})})
+    }
+    if(action==='admin_get_payout_detail'){
+      const id=String(p.id||'');const req0=await admin.from('payout_requests').select('*').eq('id',id).single();if(req0.error)throw req0.error
+      const acc=req0.data.payout_account_id?await admin.from('payout_accounts').select('account_holder,iban,bic,country').eq('id',req0.data.payout_account_id).single():{data:null,error:null} as any;if(acc.error)throw acc.error
+      const prof=await admin.from('profiles').select('email,first_name,last_name').eq('id',req0.data.user_id).maybeSingle();if(prof.error)throw prof.error
+      return json({success:true,data:{...req0.data,email:prof.data?.email||null,name:[prof.data?.first_name,prof.data?.last_name].filter(Boolean).join(' '),bank:acc.data}})
+    }
+    if(action==='admin_update_payout'){
+      const id=String(p.id||''),next=String(p.status||''),note=String(p.adminNote||'').trim()||null
+      const cur=await admin.from('payout_requests').select('*').eq('id',id).single();if(cur.error)throw cur.error
+      const allowedPayout:Record<string,string[]>={requested:['approved','rejected','cancelled'],approved:['paid','rejected','cancelled'],paid:[],rejected:[],cancelled:[]}
+      if(cur.data.status!==next&&!allowedPayout[cur.data.status]?.includes(next))return json({success:false,error:{code:'INVALID_STATUS_TRANSITION',message:'Invalid payout status transition'}},409)
+      const now=new Date().toISOString();const patch:any={status:next,admin_note:note,updated_at:now}
+      if(next==='approved')patch.approved_at=now
+      if(next==='paid')patch.paid_at=now
+      if(next==='rejected')patch.rejected_at=now
+      const upd=await admin.from('payout_requests').update(patch).eq('id',id).select('*').single();if(upd.error)throw upd.error
+      if(next==='paid'){
+        const links=await admin.from('payout_request_rewards').select('reward_id').eq('payout_request_id',id);if(links.error)throw links.error
+        const ids=(links.data||[]).map((x:any)=>x.reward_id)
+        if(ids.length){const rw=await admin.from('rewards').update({status:'redeemed',redeemed_at:now}).in('id',ids).in('status',['approved','available']);if(rw.error)throw rw.error}
+      }
+      await admin.from('audit_logs').insert({admin_user_id:user.id,action:'payout.status_update',entity_type:'payout_request',entity_id:id,old_value:cur.data,new_value:upd.data})
+      return json({success:true,data:upd.data})
     }
     if(action==='admin_program_snapshot'){
       const products=await admin.from('referral_products').select('*').order('sort_order',{ascending:true});if(products.error)throw products.error
