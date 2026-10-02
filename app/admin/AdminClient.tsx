@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createBrowserSupabase } from "@/lib/supabase/browser";
 
 type Lang = "de" | "en" | "zh";
 type Tab = "dashboard" | "referrals" | "users" | "products" | "assets" | "sales" | "payouts" | "admins" | "settings";
@@ -267,6 +268,41 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
 
   useEffect(() => { void load(); }, [load]);
 
+  async function uploadAssetImage(file: File) {
+    setError("");
+    if (!["image/jpeg","image/png","image/webp"].includes(file.type)) {
+      setError(lang === "zh" ? "仅支持 JPG、PNG、WebP 图片。" : lang === "en" ? "Only JPG, PNG and WebP images are supported." : "Nur JPG-, PNG- und WebP-Bilder werden unterstützt.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setError(lang === "zh" ? "图片不能超过 8 MB。" : lang === "en" ? "Image must not exceed 8 MB." : "Das Bild darf maximal 8 MB groß sein.");
+      return;
+    }
+    setBusy("asset-image-upload");
+    try {
+      const supabase = createBrowserSupabase();
+      const ext = file.name.split(".").pop()?.toLowerCase() || (file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg");
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-").slice(-90);
+      const path = `images/${new Date().toISOString().slice(0,10)}/${crypto.randomUUID()}-${safeName || "asset." + ext}`;
+      const { error: uploadError } = await supabase.storage.from("referral-assets").upload(path, file, {
+        cacheControl: "3600",
+        contentType: file.type,
+        upsert: false,
+      });
+      if (uploadError) throw uploadError;
+      const { data } = supabase.storage.from("referral-assets").getPublicUrl(path);
+      setAssetDraft(x => ({
+        ...x,
+        asset_type: x.asset_type === "banner" ? "banner" : "image",
+        asset_url: data.publicUrl,
+      }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Image upload failed");
+    } finally {
+      setBusy("");
+    }
+  }
+
   async function saveProgram(action: string, payload: any) {
     setBusy(action);
     setError("");
@@ -517,7 +553,12 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
       <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
         <thead><tr style={{textAlign:"left",background:"#f7f8fa",color:"#69707d"}}><th style={{padding:12}}>{t.title}</th><th style={{padding:12}}>{t.assetType}</th><th style={{padding:12}}>{t.product}</th><th style={{padding:12}}>{t.active}</th><th style={{padding:12}}></th></tr></thead>
         <tbody>{program.assets.map(a=><tr key={a.id} style={{borderTop:"1px solid #eef0f2"}}>
-          <td style={{padding:12}}><b>{lang==="zh"?(a.title_zh||a.title_de):lang==="en"?(a.title_en||a.title_de):a.title_de}</b></td>
+          <td style={{padding:12}}>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              {a.asset_url && ["image","banner"].includes(a.asset_type) ? <img src={a.asset_url} alt="" style={{width:64,height:44,objectFit:"cover",borderRadius:7,border:"1px solid #e5e7eb",background:"#f7f8fa"}}/> : null}
+              <b>{lang==="zh"?(a.title_zh||a.title_de):lang==="en"?(a.title_en||a.title_de):a.title_de}</b>
+            </div>
+          </td>
           <td style={{padding:12}}>{a.asset_type}</td>
           <td style={{padding:12}}>{modelLabel(program.products.find(p=>p.id===a.product_id))}</td>
           <td style={{padding:12}}>{a.active?"✓":"—"}</td>
@@ -537,7 +578,29 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
         <Field name="Titel DE"><input style={input} value={assetDraft.title_de} onChange={e=>setAssetDraft(x=>({...x,title_de:e.target.value}))}/></Field>
         <Field name="Title EN"><input style={input} value={assetDraft.title_en || ""} onChange={e=>setAssetDraft(x=>({...x,title_en:e.target.value}))}/></Field>
         <Field name="标题 中文"><input style={input} value={assetDraft.title_zh || ""} onChange={e=>setAssetDraft(x=>({...x,title_zh:e.target.value}))}/></Field>
-        <Field name={t.assetUrl}><input style={input} value={assetDraft.asset_url || ""} onChange={e=>setAssetDraft(x=>({...x,asset_url:e.target.value}))}/></Field>
+        <Field name={lang==="zh"?"宣传图片":lang==="en"?"Promotional image":"Werbebild"}>
+          <div style={{display:"grid",gap:9}}>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              disabled={busy==="asset-image-upload"}
+              onChange={e=>{
+                const file=e.target.files?.[0];
+                if(file) void uploadAssetImage(file);
+                e.currentTarget.value="";
+              }}
+              style={{...input,padding:8}}
+            />
+            <div style={{fontSize:11,color:"#69707d"}}>
+              {lang==="zh"?"支持 JPG / PNG / WebP，单张最大 8 MB。上传后自动保存图片地址。":lang==="en"?"JPG / PNG / WebP, up to 8 MB. The image URL is filled automatically after upload.":"JPG / PNG / WebP, maximal 8 MB. Die Bild-URL wird nach dem Upload automatisch übernommen."}
+            </div>
+            {busy==="asset-image-upload" ? <div style={{fontSize:12,color:"#008254",fontWeight:700}}>{lang==="zh"?"正在上传图片…":lang==="en"?"Uploading image…":"Bild wird hochgeladen…"}</div> : null}
+            {assetDraft.asset_url && ["image","banner"].includes(assetDraft.asset_type) ? <div style={{border:"1px solid #e3e6ea",borderRadius:12,padding:8,background:"#f8f9fa"}}>
+              <img src={assetDraft.asset_url} alt="" style={{width:"100%",maxHeight:240,objectFit:"contain",borderRadius:8,background:"#fff"}}/>
+            </div> : null}
+          </div>
+        </Field>
+        <Field name={lang==="zh"?"图片/素材 URL（可手工修改）":lang==="en"?"Image / asset URL (editable)":"Bild-/Material-URL (editierbar)"}><input style={input} value={assetDraft.asset_url || ""} onChange={e=>setAssetDraft(x=>({...x,asset_url:e.target.value}))}/></Field>
         <Field name={t.germanCopy}><textarea style={{...input,minHeight:74}} value={assetDraft.copy_de || ""} onChange={e=>setAssetDraft(x=>({...x,copy_de:e.target.value}))}/></Field>
         <Field name={t.englishCopy}><textarea style={{...input,minHeight:74}} value={assetDraft.copy_en || ""} onChange={e=>setAssetDraft(x=>({...x,copy_en:e.target.value}))}/></Field>
         <Field name={t.chineseCopy}><textarea style={{...input,minHeight:74}} value={assetDraft.copy_zh || ""} onChange={e=>setAssetDraft(x=>({...x,copy_zh:e.target.value}))}/></Field>
