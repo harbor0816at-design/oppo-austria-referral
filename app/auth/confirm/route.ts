@@ -1,14 +1,76 @@
+import type { EmailOtpType } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { callReferralEdgeWithToken } from "@/lib/supabase/edge";
-import { env } from "@/lib/env";
 import { REFERRAL_CODE_COOKIE, REFERRAL_SESSION_COOKIE } from "@/lib/referral/cookies";
 
-export async function GET(request:Request){
-  const url=new URL(request.url),code=url.searchParams.get("code"),requestedNext=url.searchParams.get("next")??"/my-referrals";const next=requestedNext.startsWith("/")&&!requestedNext.startsWith("//")?requestedNext:"/my-referrals";const supabase=await createServerSupabase();
-  if(code){const {error}=await supabase.auth.exchangeCodeForSession(code);if(error)return NextResponse.redirect(new URL("/?auth=error",env.siteUrl))}
-  const {data}=await supabase.auth.getSession();const session=data.session;
-  if(session?.access_token){const store=await cookies();const user=session.user;if(user.user_metadata?.referral_terms_granted===true){await callReferralEdgeWithToken(session.access_token,"log_consent",{consentType:"referral_terms",consentVersion:String(user.user_metadata?.referral_terms_version||"v1"),granted:true}).catch(()=>undefined)}await callReferralEdgeWithToken(session.access_token,"attribute_registration",{sessionId:store.get(REFERRAL_SESSION_COOKIE)?.value,referralCode:store.get(REFERRAL_CODE_COOKIE)?.value}).catch(()=>undefined)}
-  return NextResponse.redirect(new URL(next,env.siteUrl));
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const code = url.searchParams.get("code");
+  const tokenHash = url.searchParams.get("token_hash");
+  const type = url.searchParams.get("type") as EmailOtpType | null;
+
+  const requestedNext = url.searchParams.get("next") ?? "/portal/index.html";
+  const next =
+    requestedNext.startsWith("/") && !requestedNext.startsWith("//")
+      ? requestedNext
+      : "/portal/index.html";
+
+  const supabase = await createServerSupabase();
+
+  if (tokenHash && type) {
+    const { error } = await supabase.auth.verifyOtp({
+      token_hash: tokenHash,
+      type,
+    });
+
+    if (error) {
+      return NextResponse.redirect(
+        new URL("/portal/index.html?auth=error", url.origin),
+      );
+    }
+  } else if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+    if (error) {
+      return NextResponse.redirect(
+        new URL("/portal/index.html?auth=error", url.origin),
+      );
+    }
+  } else {
+    return NextResponse.redirect(
+      new URL("/portal/index.html?auth=missing_token", url.origin),
+    );
+  }
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (session?.access_token) {
+    const store = await cookies();
+    const user = session.user;
+
+    if (user.user_metadata?.referral_terms_granted === true) {
+      await callReferralEdgeWithToken(session.access_token, "log_consent", {
+        consentType: "referral_terms",
+        consentVersion: String(
+          user.user_metadata?.referral_terms_version || "v1",
+        ),
+        granted: true,
+      }).catch(() => undefined);
+    }
+
+    await callReferralEdgeWithToken(
+      session.access_token,
+      "attribute_registration",
+      {
+        sessionId: store.get(REFERRAL_SESSION_COOKIE)?.value,
+        referralCode: store.get(REFERRAL_CODE_COOKIE)?.value,
+      },
+    ).catch(() => undefined);
+  }
+
+  return NextResponse.redirect(new URL(next, url.origin));
 }
