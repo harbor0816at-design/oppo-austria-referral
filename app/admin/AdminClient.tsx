@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Lang = "de" | "en" | "zh";
-type Tab = "dashboard" | "referrals" | "users" | "products" | "assets" | "sales" | "admins" | "settings";
+type Tab = "dashboard" | "referrals" | "users" | "products" | "assets" | "sales" | "payouts" | "admins" | "settings";
 
 type Referral = {
   id: string;
@@ -103,10 +103,28 @@ type ProgramSnapshot = {
   settings: Record<string, any>;
 };
 
+type PayoutRow = {
+  id: string;
+  user_id: string;
+  email?: string | null;
+  name?: string | null;
+  amount: number;
+  currency: string;
+  status: string;
+  requested_at: string;
+  approved_at?: string | null;
+  paid_at?: string | null;
+  rejected_at?: string | null;
+  admin_note?: string | null;
+  account_holder?: string | null;
+  iban_masked?: string | null;
+  bic?: string | null;
+};
+
 const copy = {
   de: {
     dashboard: "Übersicht", referrals: "Empfehlungen", users: "Nutzer", products: "Produkte & Provisionen",
-    assets: "Werbematerial", sales: "Verkäufe", settings: "Grundeinstellungen", logout: "Abmelden",
+    assets: "Werbematerial", sales: "Verkäufe", payouts: "Auszahlungen", settings: "Grundeinstellungen", logout: "Abmelden",
     usersKpi: "Nutzer", review: "Zu prüfen", qualified: "Qualifiziert", rewards: "Rewards",
     activeProducts: "Aktive Produkte", activeAssets: "Aktive Materialien", confirmedSales: "Bestätigte Verkäufe",
     refresh: "Aktualisieren", save: "Speichern", newItem: "Neu anlegen", edit: "Bearbeiten",
@@ -126,7 +144,7 @@ const copy = {
   },
   en: {
     dashboard: "Dashboard", referrals: "Referrals", users: "Users", products: "Products & commissions",
-    assets: "Marketing assets", sales: "Sales", settings: "Basic settings", logout: "Sign out",
+    assets: "Marketing assets", sales: "Sales", payouts: "Payouts", settings: "Basic settings", logout: "Sign out",
     usersKpi: "Users", review: "To review", qualified: "Qualified", rewards: "Rewards",
     activeProducts: "Active products", activeAssets: "Active assets", confirmedSales: "Confirmed sales",
     refresh: "Refresh", save: "Save", newItem: "New", edit: "Edit",
@@ -206,6 +224,7 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [users, setUsers] = useState<UserRow[]>([]);
   const [rewards, setRewards] = useState<Reward[]>([]);
+  const [payouts, setPayouts] = useState<PayoutRow[]>([]);
   const [admins, setAdmins] = useState<AdminAccount[]>([]);
   const [adminDraft, setAdminDraft] = useState({ email: "", firstName: "", lastName: "", password: "", passwordConfirm: "" });
   const [passwordDraft, setPasswordDraft] = useState({ password: "", passwordConfirm: "" });
@@ -223,16 +242,18 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
   const load = useCallback(async () => {
     setError("");
     try {
-      const [r, u, w, p] = await Promise.all([
+      const [r, u, w, p, po] = await Promise.all([
         request<Referral[]>("/api/admin/referrals"),
         request<UserRow[]>("/api/admin/users"),
         request<Reward[]>("/api/admin/rewards"),
         request<ProgramSnapshot>("/api/admin/program"),
+        request<PayoutRow[]>("/api/admin/payouts"),
       ]);
       setReferrals(r);
       setUsers(u);
       setRewards(w);
       setProgram(p);
+      setPayouts(po);
       setSettingsDraft(p.settings?.program || {});
       if (adminRole === "super_admin") {
         const a = await request<AdminAccount[]>("/api/admin/admins");
@@ -284,6 +305,34 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
     }
   }
 
+  async function updatePayout(id: string, status: "approved" | "paid" | "rejected" | "cancelled") {
+    const label = lang === "zh" ? {approved:"审核通过",paid:"标记已支付",rejected:"拒绝",cancelled:"取消"}[status] : lang === "en" ? status : {approved:"Freigeben",paid:"Als bezahlt markieren",rejected:"Ablehnen",cancelled:"Stornieren"}[status];
+    if (!window.confirm(String(label) + "?")) return;
+    setBusy("payout-" + id + "-" + status);
+    setError("");
+    try {
+      await request("/api/admin/payouts/" + id, { method: "PATCH", body: JSON.stringify({ status, adminNote: "" }) });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Payout update failed");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function showBankDetails(id: string) {
+    try {
+      const d = await request<any>("/api/admin/payouts/" + id);
+      const b = d.bank;
+      const text = b
+        ? `${d.name || d.email || ""}\n${b.account_holder}\nIBAN: ${b.iban}\nBIC: ${b.bic || "—"}\n${b.country || ""}`
+        : "No bank account";
+      window.alert(text);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to load bank details");
+    }
+  }
+
   async function createAdmin() {
     setBusy("create-admin");
     setError("");
@@ -327,7 +376,7 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
 
   const nav: Array<[Tab, string]> = [
     ["dashboard", t.dashboard], ["referrals", t.referrals], ["users", t.users],
-    ["products", t.products], ["assets", t.assets], ["sales", t.sales],
+    ["products", t.products], ["assets", t.assets], ["sales", t.sales], ["payouts", t.payouts],
     ...(adminRole === "super_admin" ? [["admins", lang === "zh" ? "管理员管理" : lang === "en" ? "Administrators" : "Administratoren"] as [Tab,string]] : []),
     ["settings", t.settings],
   ];
@@ -529,6 +578,50 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
     </section>
   </div>;
 
+  const payoutsView = <section style={{...box,overflow:"hidden"}}>
+    <div style={{padding:20}}>
+      <Heading
+        title={lang==="zh"?"提现审核":lang==="en"?"Payout review":"Auszahlungen"}
+        help={lang==="zh"?"审核推荐者提现申请。银行信息默认掩码显示，点击银行信息后才查看完整收款信息。":lang==="en"?"Review payout requests. Bank data is masked by default and revealed only when needed for payment.":"Auszahlungsanträge prüfen. Bankdaten werden standardmäßig maskiert und nur bei Bedarf vollständig angezeigt."}
+        action={<button style={secondary} onClick={()=>void load()}>{t.refresh}</button>}
+      />
+    </div>
+    <div style={{overflowX:"auto"}}>
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+        <thead><tr style={{textAlign:"left",background:"#f7f8fa",color:"#69707d"}}>
+          <th style={{padding:12}}>E-Mail</th>
+          <th style={{padding:12}}>{lang==="zh"?"金额":lang==="en"?"Amount":"Betrag"}</th>
+          <th style={{padding:12}}>{lang==="zh"?"银行账户":lang==="en"?"Bank account":"Bankkonto"}</th>
+          <th style={{padding:12}}>{t.status}</th>
+          <th style={{padding:12}}>{lang==="zh"?"申请时间":lang==="en"?"Requested":"Angefordert"}</th>
+          <th style={{padding:12}}>{t.action}</th>
+        </tr></thead>
+        <tbody>
+          {payouts.map(po=><tr key={po.id} style={{borderTop:"1px solid #eef0f2",verticalAlign:"top"}}>
+            <td style={{padding:12}}><b>{po.email || "—"}</b><div style={{fontSize:11,color:"#69707d",marginTop:3}}>{po.name || ""}</div></td>
+            <td style={{padding:12,fontWeight:800}}>{money(po.amount,po.currency)}</td>
+            <td style={{padding:12}}><div>{po.account_holder || "—"}</div><button style={{...secondary,marginTop:6,padding:"6px 9px"}} onClick={()=>void showBankDetails(po.id)}>{po.iban_masked || (lang==="zh"?"查看银行信息":lang==="en"?"View bank details":"Bankdaten anzeigen")}</button></td>
+            <td style={{padding:12}}><b>{po.status}</b>{po.admin_note?<div style={{fontSize:11,color:"#69707d",marginTop:4}}>{po.admin_note}</div>:null}</td>
+            <td style={{padding:12}}>{new Date(po.requested_at).toLocaleString()}</td>
+            <td style={{padding:12}}>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {po.status==="requested"?<>
+                  <button style={primary} disabled={!!busy} onClick={()=>void updatePayout(po.id,"approved")}>{lang==="zh"?"通过":lang==="en"?"Approve":"Freigeben"}</button>
+                  <button style={danger} disabled={!!busy} onClick={()=>void updatePayout(po.id,"rejected")}>{t.reject}</button>
+                </>:null}
+                {po.status==="approved"?<>
+                  <button style={primary} disabled={!!busy} onClick={()=>void updatePayout(po.id,"paid")}>{lang==="zh"?"已支付":lang==="en"?"Mark paid":"Als bezahlt markieren"}</button>
+                  <button style={danger} disabled={!!busy} onClick={()=>void updatePayout(po.id,"rejected")}>{t.reject}</button>
+                </>:null}
+              </div>
+            </td>
+          </tr>)}
+          {!payouts.length?<tr><td colSpan={6} style={{padding:24,color:"#69707d"}}>{t.noData}</td></tr>:null}
+        </tbody>
+      </table>
+    </div>
+  </section>;
+
   const adminsView = adminRole === "super_admin" ? <div style={{display:"grid",gridTemplateColumns:"1.2fr .8fr",gap:18,alignItems:"start"}}>
     <section style={{...box,overflow:"hidden"}}>
       <div style={{padding:20}}><Heading title={lang==="zh"?"管理员管理":lang==="en"?"Administrator management":"Administratoren verwalten"} help={lang==="zh"?"超级管理员可以新增后台管理员账号。":lang==="en"?"Super admins can create additional administrator accounts.":"Super-Administratoren können weitere Admin-Konten anlegen."}/></div>
@@ -578,7 +671,7 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
   </div>;
 
   const views: Record<Tab, React.ReactNode> = {
-    dashboard, referrals: referralsView, users: usersView, products: productsView, assets: assetsView, sales: salesView, admins: adminsView, settings: settingsView,
+    dashboard, referrals: referralsView, users: usersView, products: productsView, assets: assetsView, sales: salesView, payouts: payoutsView, admins: adminsView, settings: settingsView,
   };
 
   return (
