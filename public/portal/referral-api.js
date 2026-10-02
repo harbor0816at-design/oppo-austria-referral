@@ -435,7 +435,8 @@
         window.location.replace('/staff');
         return;
       }
-      await loadDashboard();
+      window.location.replace('/my-referrals');
+      return;
     } catch (e) {
       if (e.status === 401) {
         setGuestUI();
