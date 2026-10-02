@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
 
 type Lang = "de" | "en" | "zh";
-type Tab = "dashboard" | "referrals" | "users" | "products" | "assets" | "sales" | "payouts" | "admins" | "settings";
+type Tab = "dashboard" | "agreements" | "referrals" | "users" | "products" | "assets" | "sales" | "payouts" | "admins" | "settings";
 
 type Referral = {
   id: string;
@@ -104,6 +104,28 @@ type ProgramSnapshot = {
   settings: Record<string, any>;
 };
 
+type AgreementRow = {
+  id: string;
+  user_id: string;
+  email?: string | null;
+  name?: string | null;
+  template_version: string;
+  signer_name: string;
+  signer_email: string;
+  status: string;
+  signed_at: string;
+  reviewed_at?: string | null;
+  review_note?: string | null;
+  content_hash?: string | null;
+  profile_status?: string | null;
+};
+
+type AgreementDetail = AgreementRow & {
+  title_snapshot: string;
+  content_snapshot: string;
+  signature_url: string;
+};
+
 type PayoutRow = {
   id: string;
   user_id: string;
@@ -125,7 +147,7 @@ type PayoutRow = {
 const copy = {
   de: {
     dashboard: "Übersicht", referrals: "Empfehlungen", users: "Nutzer", products: "Produkte & Provisionen",
-    assets: "Werbematerial", sales: "Verkäufe", payouts: "Auszahlungen", settings: "Grundeinstellungen", logout: "Abmelden",
+    agreements: "Vereinbarungen", assets: "Werbematerial", sales: "Verkäufe", payouts: "Auszahlungen", settings: "Grundeinstellungen", logout: "Abmelden",
     usersKpi: "Nutzer", review: "Zu prüfen", qualified: "Qualifiziert", rewards: "Rewards",
     activeProducts: "Aktive Produkte", activeAssets: "Aktive Materialien", confirmedSales: "Bestätigte Verkäufe",
     refresh: "Aktualisieren", save: "Speichern", newItem: "Neu anlegen", edit: "Bearbeiten",
@@ -145,7 +167,7 @@ const copy = {
   },
   en: {
     dashboard: "Dashboard", referrals: "Referrals", users: "Users", products: "Products & commissions",
-    assets: "Marketing assets", sales: "Sales", payouts: "Payouts", settings: "Basic settings", logout: "Sign out",
+    agreements: "Agreements", assets: "Marketing assets", sales: "Sales", payouts: "Payouts", settings: "Basic settings", logout: "Sign out",
     usersKpi: "Users", review: "To review", qualified: "Qualified", rewards: "Rewards",
     activeProducts: "Active products", activeAssets: "Active assets", confirmedSales: "Confirmed sales",
     refresh: "Refresh", save: "Save", newItem: "New", edit: "Edit",
@@ -165,7 +187,7 @@ const copy = {
   },
   zh: {
     dashboard: "总览", referrals: "推荐审核", users: "用户", products: "产品与返利",
-    assets: "宣传素材", sales: "销量结果", payouts: "提现审核", settings: "基础设置", logout: "退出登录",
+    agreements: "协议审核", assets: "宣传素材", sales: "销量结果", payouts: "提现审核", settings: "基础设置", logout: "退出登录",
     usersKpi: "用户数", review: "待审核", qualified: "已确认", rewards: "已发奖励",
     activeProducts: "在售推荐产品", activeAssets: "有效素材", confirmedSales: "已确认销量",
     refresh: "刷新", save: "保存", newItem: "新建", edit: "编辑",
@@ -226,6 +248,9 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [users, setUsers] = useState<UserRow[]>([]);
   const [rewards, setRewards] = useState<Reward[]>([]);
+  const [agreements, setAgreements] = useState<AgreementRow[]>([]);
+  const [agreementDetail, setAgreementDetail] = useState<AgreementDetail | null>(null);
+  const [agreementNote, setAgreementNote] = useState("");
   const [payouts, setPayouts] = useState<PayoutRow[]>([]);
   const [admins, setAdmins] = useState<AdminAccount[]>([]);
   const [adminDraft, setAdminDraft] = useState({ email: "", firstName: "", lastName: "", password: "", passwordConfirm: "" });
@@ -244,18 +269,20 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
   const load = useCallback(async () => {
     setError("");
     try {
-      const [r, u, w, p, po] = await Promise.all([
+      const [r, u, w, p, po, ag] = await Promise.all([
         request<Referral[]>("/api/admin/referrals"),
         request<UserRow[]>("/api/admin/users"),
         request<Reward[]>("/api/admin/rewards"),
         request<ProgramSnapshot>("/api/admin/program"),
         request<PayoutRow[]>("/api/admin/payouts"),
+        request<AgreementRow[]>("/api/admin/agreements"),
       ]);
       setReferrals(r);
       setUsers(u);
       setRewards(w);
       setProgram(p);
       setPayouts(po);
+      setAgreements(ag);
       setSettingsDraft(p.settings?.program || {});
       if (adminRole === "super_admin") {
         const a = await request<AdminAccount[]>("/api/admin/admins");
@@ -342,6 +369,34 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
     }
   }
 
+  async function openAgreement(id: string) {
+    setError("");
+    try {
+      const d = await request<AgreementDetail>("/api/admin/agreements/" + id);
+      setAgreementDetail(d);
+      setAgreementNote(d.review_note || "");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Agreement load failed");
+    }
+  }
+
+  async function reviewAgreement(id: string, status: "approved" | "rejected") {
+    const label = lang === "zh" ? (status === "approved" ? "确认通过该协议？" : "确认拒绝该协议？") : lang === "en" ? (status === "approved" ? "Approve this agreement?" : "Reject this agreement?") : (status === "approved" ? "Diese Vereinbarung freigeben?" : "Diese Vereinbarung ablehnen?");
+    if (!window.confirm(label)) return;
+    setBusy("agreement-" + id + "-" + status);
+    setError("");
+    try {
+      await request("/api/admin/agreements/" + id, { method: "PATCH", body: JSON.stringify({ status, reviewNote: agreementNote }) });
+      setAgreementDetail(null);
+      setAgreementNote("");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Agreement review failed");
+    } finally {
+      setBusy("");
+    }
+  }
+
   async function updatePayout(id: string, status: "approved" | "paid" | "rejected" | "cancelled") {
     const label = lang === "zh" ? {approved:"审核通过",paid:"标记已支付",rejected:"拒绝",cancelled:"取消"}[status] : lang === "en" ? status : {approved:"Freigeben",paid:"Als bezahlt markieren",rejected:"Ablehnen",cancelled:"Stornieren"}[status];
     if (!window.confirm(String(label) + "?")) return;
@@ -412,7 +467,7 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
   const activeAssets = program.assets.filter(a => a.active);
 
   const nav: Array<[Tab, string]> = [
-    ["dashboard", t.dashboard], ["referrals", t.referrals], ["users", t.users],
+    ["dashboard", t.dashboard], ["agreements", t.agreements], ["referrals", t.referrals], ["users", t.users],
     ["products", t.products], ["assets", t.assets], ["sales", t.sales], ["payouts", t.payouts],
     ...(adminRole === "super_admin" ? [["admins", lang === "zh" ? "管理员管理" : lang === "en" ? "Administrators" : "Administratoren"] as [Tab,string]] : []),
     ["settings", t.settings],
@@ -457,6 +512,42 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
       </div>
     </section>
   </div>;
+
+  const agreementPending = agreements.filter(a => a.status === "submitted").length;
+
+  const agreementsView = <section style={{...box,overflow:"hidden"}}>
+    <div style={{padding:20}}>
+      <Heading
+        title={t.agreements}
+        help={lang==="zh"?"用户完成注册后必须签署协议。管理员审核通过后，推荐者账号才会正式开放。":lang==="en"?"Users must sign the agreement after registration. Referral access is enabled only after administrator approval.":"Nach der Registrierung muss die Vereinbarung unterzeichnet werden. Das Referral-Konto wird erst nach Admin-Freigabe aktiviert."}
+        action={<button style={secondary} onClick={()=>void load()}>{t.refresh}</button>}
+      />
+      <div style={{fontSize:12,color:"#69707d"}}>{lang==="zh"?"待审核":lang==="en"?"Pending review":"Zu prüfen"}: <b style={{color:"#b26a00"}}>{agreementPending}</b></div>
+    </div>
+    <div style={{overflowX:"auto"}}>
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+        <thead><tr style={{textAlign:"left",background:"#f7f8fa",color:"#69707d"}}>
+          <th style={{padding:12}}>{t.email}</th>
+          <th style={{padding:12}}>{lang==="zh"?"签署人":lang==="en"?"Signer":"Unterzeichner"}</th>
+          <th style={{padding:12}}>{lang==="zh"?"协议版本":lang==="en"?"Version":"Version"}</th>
+          <th style={{padding:12}}>{t.status}</th>
+          <th style={{padding:12}}>{lang==="zh"?"签署时间":lang==="en"?"Signed":"Unterzeichnet"}</th>
+          <th style={{padding:12}}>{t.action}</th>
+        </tr></thead>
+        <tbody>
+          {agreements.map(a=><tr key={a.id} style={{borderTop:"1px solid #eef0f2"}}>
+            <td style={{padding:12}}><b>{a.email || a.signer_email}</b><div style={{fontSize:11,color:"#69707d"}}>{a.name || ""}</div></td>
+            <td style={{padding:12}}>{a.signer_name}</td>
+            <td style={{padding:12,fontFamily:"monospace"}}>{a.template_version}</td>
+            <td style={{padding:12}}><b style={{color:a.status==="approved"?"#008254":a.status==="rejected"?"#b42318":a.status==="submitted"?"#b26a00":"#333"}}>{a.status}</b></td>
+            <td style={{padding:12}}>{new Date(a.signed_at).toLocaleString()}</td>
+            <td style={{padding:12}}><button style={secondary} onClick={()=>void openAgreement(a.id)}>{lang==="zh"?"查看/审核":lang==="en"?"View / review":"Ansehen / prüfen"}</button></td>
+          </tr>)}
+          {!agreements.length?<tr><td colSpan={6} style={{padding:24,color:"#69707d"}}>{t.noData}</td></tr>:null}
+        </tbody>
+      </table>
+    </div>
+  </section>;
 
   const referralsView = <section style={{ ...box, overflow: "hidden" }}>
     <div style={{ padding: 20 }}><Heading title={t.referrals} help={t.reviewHelp} action={<button style={secondary} onClick={() => void load()}>{t.refresh}</button>} /></div>
@@ -735,7 +826,7 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
   </div>;
 
   const views: Record<Tab, React.ReactNode> = {
-    dashboard, referrals: referralsView, users: usersView, products: productsView, assets: assetsView, sales: salesView, payouts: payoutsView, admins: adminsView, settings: settingsView,
+    dashboard, agreements: agreementsView, referrals: referralsView, users: usersView, products: productsView, assets: assetsView, sales: salesView, payouts: payoutsView, admins: adminsView, settings: settingsView,
   };
 
   return (
