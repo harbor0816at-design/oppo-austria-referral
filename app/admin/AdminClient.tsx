@@ -84,6 +84,8 @@ type Sale = {
   order_number?: string | null;
   referral_id?: string | null;
   referrer_id?: string | null;
+  referral_code?: string | null;
+  buyer_email?: string | null;
   product_id?: string | null;
   quantity: number;
   gross_sales: number;
@@ -237,7 +239,7 @@ const emptyAsset = (): Asset => ({
 });
 
 const emptySale = (): Sale => ({
-  order_number: "", referral_id: null, product_id: null, quantity: 1,
+  order_number: "", referral_id: null, referral_code: "", buyer_email: "", product_id: null, quantity: 1,
   gross_sales: 0, net_sales: 0, reward_amount: 0, currency: "EUR",
   status: "pending", sold_at: new Date().toISOString().slice(0, 10), notes: "",
 });
@@ -706,7 +708,7 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
       <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
         <thead><tr style={{textAlign:"left",background:"#f7f8fa",color:"#69707d"}}><th style={{padding:12}}>{t.order}</th><th style={{padding:12}}>{t.product}</th><th style={{padding:12}}>{t.quantity}</th><th style={{padding:12}}>{t.net}</th><th style={{padding:12}}>{t.reward}</th><th style={{padding:12}}>{t.status}</th><th style={{padding:12}}></th></tr></thead>
         <tbody>{program.sales.map(s=><tr key={s.id} style={{borderTop:"1px solid #eef0f2"}}>
-          <td style={{padding:12}}><b>{s.order_number || "—"}</b><div style={{color:"#69707d"}}>{s.referrals?.referral_code || ""}</div></td>
+          <td style={{padding:12}}><b>{s.order_number || "—"}</b><div style={{color:"#69707d"}}>{s.referral_code || s.referrals?.referral_code || ""}</div><div style={{color:"#69707d",fontSize:11}}>{s.buyer_email || s.referrals?.referred_email || ""}</div></td>
           <td style={{padding:12}}>{[s.referral_products?.model_name,s.referral_products?.variant].filter(Boolean).join(" · ") || "—"}</td>
           <td style={{padding:12}}>{s.quantity}</td><td style={{padding:12}}>{money(s.net_sales,s.currency)}</td><td style={{padding:12,color:"#008254",fontWeight:800}}>{money(s.reward_amount,s.currency)}</td><td style={{padding:12}}>{s.status}</td>
           <td style={{padding:12}}><button style={secondary} onClick={()=>setSaleDraft({...s,sold_at:s.sold_at?.slice(0,10)})}>{t.edit}</button></td>
@@ -719,6 +721,13 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
         <Field name={t.order}><input style={input} value={saleDraft.order_number || ""} onChange={e=>setSaleDraft(x=>({...x,order_number:e.target.value}))}/></Field>
         <Field name={t.product}><select style={input} value={saleDraft.product_id || ""} onChange={e=>setSaleDraft(x=>({...x,product_id:e.target.value||null}))}><option value="">—</option>{program.products.map(p=><option key={p.id} value={p.id}>{modelLabel(p)} · {money(p.referrer_reward,p.currency)}</option>)}</select></Field>
         <Field name={t.referrals}><select style={input} value={saleDraft.referral_id || ""} onChange={e=>setSaleDraft(x=>({...x,referral_id:e.target.value||null}))}><option value="">—</option>{referrals.map(r=><option key={r.id} value={r.id}>{r.referral_code} · {r.referred_email || "—"}</option>)}</select></Field>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Field name={lang==="zh"?"推荐码 / 购买码":lang==="en"?"Referral / purchase code":"Referral-/Kaufcode"}><input style={input} value={saleDraft.referral_code || ""} onChange={e=>setSaleDraft(x=>({...x,referral_code:e.target.value.toUpperCase()}))} placeholder="XXXXXXX"/></Field>
+          <Field name={lang==="zh"?"购买人邮箱":lang==="en"?"Buyer email":"Käufer-E-Mail"}><input style={input} type="email" value={saleDraft.buyer_email || ""} onChange={e=>setSaleDraft(x=>({...x,buyer_email:e.target.value}))} placeholder="customer@example.com"/></Field>
+        </div>
+        <div style={{fontSize:11,color:"#69707d",lineHeight:1.5}}>
+          {lang==="zh"?"可关联已有推荐记录，也可以只填写推荐码 + 购买人邮箱。订单确认后系统会自动识别推荐人、生成返利并向双方发送邮件。":lang==="en"?"Link an existing referral, or enter only a referral code and buyer email. Once confirmed, the system attributes the purchase, creates the reward and emails both parties.":"Sie können eine bestehende Empfehlung verknüpfen oder nur Referral-Code + Käufer-E-Mail eingeben. Nach Bestätigung werden Kauf, Prämie und E-Mails automatisch verarbeitet."}
+        </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Field name={t.quantity}><input style={input} type="number" value={saleDraft.quantity} onChange={e=>setSaleDraft(x=>({...x,quantity:Number(e.target.value)}))}/></Field>
           <Field name={t.soldAt}><input style={input} type="date" value={saleDraft.sold_at?.slice(0,10) || ""} onChange={e=>setSaleDraft(x=>({...x,sold_at:e.target.value}))}/></Field>
