@@ -318,7 +318,7 @@
               <div class="text-[10px] text-brand-gray uppercase tracking-wider font-semibold">${escapeHtml(t('Mein Empfehlungslink'))}</div>
               <div class="text-xs font-mono font-semibold text-brand-black truncate mt-1">${escapeHtml(d.referralLink)}</div>
             </div>
-            <button class="px-4 py-2.5 rounded-xl bg-oppo text-white text-xs font-semibold" onclick="copyToClipboard(state.dashboard?.referralLink || '', 'Empfehlungslink kopiert.')">${escapeHtml(t('Link kopieren'))}</button>
+            <button class="px-4 py-2.5 rounded-xl bg-oppo text-white text-xs font-semibold" onclick="copyMyReferralLink()">${escapeHtml(t('Link kopieren'))}</button>
           </div>
         </div>`;
     }
@@ -402,6 +402,11 @@
 
     if (window.lucide?.createIcons) window.lucide.createIcons();
   }
+
+  window.copyMyReferralLink = async function() {
+    if (!state.dashboard?.referralLink) return;
+    await window.copyToClipboard(state.dashboard.referralLink, 'Empfehlungslink kopiert.');
+  };
 
   window.copyMarketingAsset = async function(assetId) {
     const asset = (state.program?.assets || []).find(a => a.id === assetId);
