@@ -427,7 +427,7 @@
   async function bootstrap() {
     try {
       const session = await api('/api/auth/session');
-      if (session.role === 'admin') {
+      if (session.role === 'admin' || session.role === 'super_admin') {
         window.location.replace('/admin');
         return;
       }
@@ -472,8 +472,8 @@
           <button type="button" id="resendConfirmation" class="w-full py-2.5 rounded-xl bg-white text-brand-gray text-[11px] font-semibold border border-surface-border">Bestätigungs-E-Mail erneut senden</button>
           <button type="button" id="magicLinkLogin" class="w-full py-3 rounded-xl bg-surface-card text-brand-black text-xs font-semibold border border-surface-border">Magic Link per E-Mail senden</button>
           <div class="pt-3 mt-3 border-t border-surface-border">
-            <p class="text-[10px] uppercase tracking-wider text-brand-gray font-semibold mb-2">OPPO Mitarbeiter / Admin</p>
-            <button type="button" id="staffMagicLinkLogin" class="w-full py-3 rounded-xl bg-brand-black text-white text-xs font-semibold">Mitarbeiter-Login per Magic Link</button>
+            <p class="text-[10px] uppercase tracking-wider text-brand-gray font-semibold mb-1">OPPO Mitarbeiter / Admin</p>
+            <p class="text-[11px] text-brand-gray leading-relaxed">Mitarbeiter und Administratoren melden sich ebenfalls oben mit E-Mail und Passwort an.</p>
           </div>
         </form>
       </div>`;
@@ -485,7 +485,7 @@
       try {
         const result = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: $('#loginEmail').value.trim(), password: $('#loginPassword').value }) });
         wrapper.classList.add('hidden');
-        if (result.role === 'admin') {
+        if (result.role === 'admin' || result.role === 'super_admin') {
           window.location.assign('/admin');
           return;
         }
@@ -493,8 +493,8 @@
           window.location.assign('/staff');
           return;
         }
-        await loadDashboard();
-        toast('Erfolgreich angemeldet.');
+        window.location.assign('/my-referrals');
+        return;
       } catch (e) {
         errorEl.textContent = e.message === 'EMAIL_NOT_CONFIRMED'
           ? 'Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse. Sie können die Bestätigungs-E-Mail unten erneut senden.'
@@ -519,15 +519,6 @@
       if (!email) return toast('Bitte zuerst Ihre E-Mail eingeben.');
       try { await api('/api/auth/magic-link', { method: 'POST', body: JSON.stringify({ email }) }); toast('Magic Link wurde per E-Mail gesendet.'); wrapper.classList.add('hidden'); }
       catch (e) { toast(e.message); }
-    });
-    $('#staffMagicLinkLogin').addEventListener('click', async () => {
-      const email = $('#loginEmail').value.trim();
-      if (!email) return toast('Bitte zuerst Ihre E-Mail eingeben.');
-      try {
-        await api('/api/auth/magic-link', { method: 'POST', body: JSON.stringify({ email, staff: true }) });
-        toast('Mitarbeiter Magic Link wurde per E-Mail gesendet.');
-        wrapper.classList.add('hidden');
-      } catch (e) { toast(e.message); }
     });
   }
 
@@ -581,8 +572,8 @@
         }
         toast('Registrierung erfolgreich. Bestätigungs-E-Mail wurde gesendet.');
       } else {
-        await loadDashboard();
-        toast('Konto erfolgreich erstellt.');
+        window.location.assign('/my-referrals');
+        return;
       }
     } catch (e) { toast(e.message); }
   };
