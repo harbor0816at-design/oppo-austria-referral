@@ -35,6 +35,65 @@ async function sha256Hex(v:string){
   return Array.from(new Uint8Array(hash)).map(x=>x.toString(16).padStart(2,'0')).join('')
 }
 
+
+const resendApiKey=Deno.env.get('RESEND_API_KEY')||''
+const referralSite='https://www.opporfriend.com'
+function esc(v:unknown){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]||m))}
+function langOf(v?:string|null){return v==='zh'||v==='en'?v:'de'}
+function moneyText(amount:number,currency='EUR',language='de'){
+  try{return new Intl.NumberFormat(language==='zh'?'zh-CN':language==='en'?'en-GB':'de-AT',{style:'currency',currency}).format(Number(amount||0))}catch{return `${Number(amount||0).toFixed(2)} ${currency}`}
+}
+function mailShell(title:string,body:string,ctaLabel?:string,ctaUrl?:string){
+  return `<!doctype html><html><body style="margin:0;background:#f5f6f7;font-family:Arial,sans-serif;color:#111"><div style="max-width:620px;margin:0 auto;padding:28px 16px"><div style="background:#fff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden"><div style="padding:22px 26px;border-bottom:1px solid #eef0f2"><div style="font-size:12px;color:#008254;font-weight:800">OPPO AUSTRIA · REFERRAL</div><h1 style="font-size:24px;margin:8px 0 0">${esc(title)}</h1></div><div style="padding:26px;font-size:14px;line-height:1.7">${body}${ctaLabel&&ctaUrl?`<p style="margin:24px 0 0"><a href="${esc(ctaUrl)}" style="display:inline-block;background:#008254;color:#fff;text-decoration:none;font-weight:700;padding:11px 16px;border-radius:9px">${esc(ctaLabel)}</a></p>`:''}</div></div><div style="text-align:center;color:#8a9098;font-size:11px;padding:16px">Rfriend Services GmbH · OPPO Store Österreich</div></div></body></html>`
+}
+async function sendNotification(args:{key:string,type:string,userId?:string|null,to?:string|null,subject:string,html:string,payload?:Record<string,unknown>}){
+  const to=String(args.to||'').trim().toLowerCase()
+  if(!to)return
+  const existing=await admin.from('notification_logs').select('id,status').eq('notification_key',args.key).maybeSingle()
+  if(existing.error)throw existing.error
+  if(existing.data?.status==='sent')return
+  let id=existing.data?.id
+  if(!id){
+    const ins=await admin.from('notification_logs').insert({
+      notification_key:args.key,notification_type:args.type,user_id:args.userId||null,
+      recipient_email:to,subject:args.subject,payload:args.payload||{},status:'pending'
+    }).select('id').single()
+    if(ins.error){if(ins.error.code==='23505')return;throw ins.error}
+    id=ins.data.id
+  }else{
+    await admin.from('notification_logs').update({status:'pending',error_message:null,updated_at:new Date().toISOString()}).eq('id',id)
+  }
+  if(!resendApiKey){
+    await admin.from('notification_logs').update({status:'failed',error_message:'RESEND_API_KEY is not configured',updated_at:new Date().toISOString()}).eq('id',id)
+    return
+  }
+  try{
+    const response=await fetch('https://api.resend.com/emails',{
+      method:'POST',
+      headers:{'authorization':`Bearer ${resendApiKey}`,'content-type':'application/json'},
+      body:JSON.stringify({
+        from:'OPPO Austria Referral <no-reply@auth.opporfriend.com>',
+        to:[to],
+        subject:args.subject,
+        html:args.html,
+        reply_to:'cs.rfriend@oppo-aed.at'
+      })
+    })
+    const data=await response.json().catch(()=>({})) as any
+    if(!response.ok)throw new Error(data?.message||`Resend HTTP ${response.status}`)
+    await admin.from('notification_logs').update({status:'sent',provider_message_id:data?.id||null,sent_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',id)
+  }catch(e){
+    await admin.from('notification_logs').update({status:'failed',error_message:e instanceof Error?e.message:String(e),updated_at:new Date().toISOString()}).eq('id',id)
+    console.error('notification send failed',args.key,e)
+  }
+}
+async function getProfile(userId?:string|null){
+  if(!userId)return null
+  const p=await admin.from('profiles').select('id,email,first_name,last_name,language').eq('id',userId).maybeSingle()
+  if(p.error)throw p.error
+  return p.data
+}
+
 async function authenticated(req:Request){
   const h=req.headers.get('authorization')||''
   if(!h.startsWith('Bearer '))return null
@@ -60,13 +119,46 @@ async function recalc(referrerId:string){
   const u=await admin.from('referrers').update({successful_referrals:successful,pending_referrals:pending,total_reward_amount:total,current_tier:tiers.data?.[0]?.name||'Member',updated_at:new Date().toISOString()}).eq('id',referrerId).select('*').single();if(u.error)throw u.error;return u.data
 }
 async function qualify(referralId:string){
-  const ref=await admin.from('referrals').select('id,referrer_id,referred_user_id,status,product_id,order_number').eq('id',referralId).single();if(ref.error)throw ref.error
+  const ref=await admin.from('referrals').select('id,referrer_id,referred_user_id,referred_email,status,product_id,order_number').eq('id',referralId).single();if(ref.error)throw ref.error
   const rr=await admin.from('referrers').select('user_id').eq('id',ref.data.referrer_id).single();if(rr.error)throw rr.error
   const now=new Date().toISOString();const rule=await admin.from('referral_rules').select('*').eq('active',true).lte('valid_from',now).or(`valid_until.is.null,valid_until.gte.${now}`).order('valid_from',{ascending:false}).limit(1).maybeSingle();if(rule.error)throw rule.error;if(!rule.data)throw new Error('NO_ACTIVE_REFERRAL_RULE')
-  let referrerReward=Number(rule.data.referrer_reward||0),friendReward=Number(rule.data.friend_reward||0),currency=rule.data.currency
-  if(ref.data.product_id){const pr=await admin.from('referral_products').select('referrer_reward,friend_discount,currency').eq('id',ref.data.product_id).maybeSingle();if(pr.error)throw pr.error;if(pr.data){referrerReward=Number(pr.data.referrer_reward||0);friendReward=Number(pr.data.friend_discount||0);currency=pr.data.currency}}
+  let referrerReward=Number(rule.data.referrer_reward||0),friendReward=Number(rule.data.friend_reward||0),currency=rule.data.currency,productName='OPPO'
+  if(ref.data.product_id){const pr=await admin.from('referral_products').select('model_name,variant,referrer_reward,friend_discount,currency').eq('id',ref.data.product_id).maybeSingle();if(pr.error)throw pr.error;if(pr.data){referrerReward=Number(pr.data.referrer_reward||0);friendReward=Number(pr.data.friend_discount||0);currency=pr.data.currency;productName=[pr.data.model_name,pr.data.variant].filter(Boolean).join(' · ')}}
   const a=await admin.from('rewards').upsert({user_id:rr.data.user_id,referral_id:referralId,product_id:ref.data.product_id||null,reward_type:'store_credit',reward_amount:referrerReward,currency,status:'available',approved_at:now},{onConflict:'referral_id,user_id,reward_type',ignoreDuplicates:true});if(a.error)throw a.error
   if(ref.data.referred_user_id){const b=await admin.from('rewards').upsert({user_id:ref.data.referred_user_id,referral_id:referralId,product_id:ref.data.product_id||null,reward_type:'coupon',reward_amount:friendReward,currency,status:'available',approved_at:now},{onConflict:'referral_id,user_id,reward_type',ignoreDuplicates:true});if(b.error)throw b.error}
+
+  const referrerProfile=await getProfile(rr.data.user_id)
+  const buyerProfile=await getProfile(ref.data.referred_user_id)
+  const refLang=langOf(referrerProfile?.language)
+  const buyerLang=langOf(buyerProfile?.language)
+  const orderLine=ref.data.order_number?`<p><b>${refLang==='zh'?'订单号':refLang==='en'?'Order':'Bestellung'}:</b> ${esc(ref.data.order_number)}</p>`:''
+  const refTitle=refLang==='zh'?'你的 OPPO 推荐已确认':refLang==='en'?'Your OPPO referral has been confirmed':'Ihre OPPO Empfehlung wurde bestätigt'
+  const refBody=refLang==='zh'
+    ?`<p>你的推荐已确认成交。</p><p><b>产品：</b>${esc(productName)}</p><p><b>本次推荐收益：</b>${esc(moneyText(referrerReward,currency,'zh'))}</p>${orderLine}<p>奖励已经记录到你的推荐账户。</p>`
+    :refLang==='en'
+      ?`<p>Your referral has been confirmed as a successful purchase.</p><p><b>Product:</b> ${esc(productName)}</p><p><b>Your referral reward:</b> ${esc(moneyText(referrerReward,currency,'en'))}</p>${orderLine}<p>The reward has been recorded in your referral account.</p>`
+      :`<p>Ihre Empfehlung wurde als erfolgreicher Kauf bestätigt.</p><p><b>Produkt:</b> ${esc(productName)}</p><p><b>Ihre Empfehlungsprämie:</b> ${esc(moneyText(referrerReward,currency,'de'))}</p>${orderLine}<p>Die Prämie wurde Ihrem Referral-Konto gutgeschrieben.</p>`
+  await sendNotification({
+    key:`referral:${referralId}:referrer-qualified`,type:'referral_purchase_referrer',userId:rr.data.user_id,
+    to:referrerProfile?.email,subject:refTitle,html:mailShell(refTitle,refBody,refLang==='zh'?'查看我的推荐收益':refLang==='en'?'View my referral earnings':'Meine Prämien ansehen',referralSite+'/my-referrals'),
+    payload:{referralId,productName,reward:referrerReward,currency,orderNumber:ref.data.order_number||null}
+  })
+
+  const buyerEmail=buyerProfile?.email||ref.data.referred_email
+  if(buyerEmail){
+    const buyerTitle=buyerLang==='zh'?'你的 OPPO 推荐订单已确认':buyerLang==='en'?'Your OPPO referral purchase has been confirmed':'Ihr OPPO Referral-Kauf wurde bestätigt'
+    const buyerOrderLine=ref.data.order_number?`<p><b>${buyerLang==='zh'?'订单号':buyerLang==='en'?'Order':'Bestellung'}:</b> ${esc(ref.data.order_number)}</p>`:''
+    const buyerBody=buyerLang==='zh'
+      ?`<p>你的订单已成功归因到 OPPO Austria 推荐计划。</p><p><b>产品：</b>${esc(productName)}</p><p><b>你的推荐权益：</b>${esc(moneyText(friendReward,currency,'zh'))}</p>${buyerOrderLine}<p>相关权益已经记录。</p>`
+      :buyerLang==='en'
+        ?`<p>Your purchase has been successfully attributed to the OPPO Austria Referral Program.</p><p><b>Product:</b> ${esc(productName)}</p><p><b>Your referral benefit:</b> ${esc(moneyText(friendReward,currency,'en'))}</p>${buyerOrderLine}<p>Your benefit has been recorded.</p>`
+        :`<p>Ihr Kauf wurde erfolgreich dem OPPO Austria Referral-Programm zugeordnet.</p><p><b>Produkt:</b> ${esc(productName)}</p><p><b>Ihr Referral-Vorteil:</b> ${esc(moneyText(friendReward,currency,'de'))}</p>${buyerOrderLine}<p>Ihr Vorteil wurde erfasst.</p>`
+    await sendNotification({
+      key:`referral:${referralId}:buyer-qualified`,type:'referral_purchase_buyer',userId:ref.data.referred_user_id||null,
+      to:buyerEmail,subject:buyerTitle,html:mailShell(buyerTitle,buyerBody),
+      payload:{referralId,productName,benefit:friendReward,currency,orderNumber:ref.data.order_number||null}
+    })
+  }
 }
 
 Deno.serve(async(req)=>{
@@ -231,6 +323,21 @@ Deno.serve(async(req)=>{
       const upd=await admin.from('user_agreements').update({status:next,reviewed_by:user.id,reviewed_at:now,review_note:note,updated_at:now}).eq('id',id).select('*').single();if(upd.error)throw upd.error
       await admin.from('profiles').update({status:next==='approved'?'active':'agreement_rejected',updated_at:now}).eq('id',cur.data.user_id)
       await admin.from('audit_logs').insert({admin_user_id:user.id,action:'agreement.review',entity_type:'user_agreement',entity_id:id,old_value:{status:cur.data.status},new_value:{status:next,review_note:note}})
+      const prof=await getProfile(cur.data.user_id)
+      const l=langOf(prof?.language)
+      const approved=next==='approved'
+      const subject=approved
+        ?(l==='zh'?'你的 OPPO 推荐合作协议已审核通过':l==='en'?'Your OPPO Referral Agreement has been approved':'Ihre OPPO Referral-Vereinbarung wurde freigegeben')
+        :(l==='zh'?'你的 OPPO 推荐合作协议需要修改':l==='en'?'Your OPPO Referral Agreement requires changes':'Ihre OPPO Referral-Vereinbarung muss angepasst werden')
+      const noteHtml=note?`<p><b>${l==='zh'?'管理员备注':l==='en'?'Administrator note':'Admin-Hinweis'}:</b><br>${esc(note)}</p>`:''
+      const body=approved
+        ?(l==='zh'?'<p>你的协议已经审核通过，推荐者账号现已正式开放。</p><p>你现在可以查看推荐收益、产品返利、宣传素材和个人推荐二维码。</p>':l==='en'?'<p>Your agreement has been approved and your referral account is now active.</p><p>You can now access referral earnings, product rewards, marketing materials and your personal referral QR code.</p>':'<p>Ihre Vereinbarung wurde freigegeben und Ihr Referral-Konto ist jetzt aktiv.</p><p>Sie können nun Prämien, Produktvergütungen, Werbematerialien und Ihren persönlichen Referral-QR-Code nutzen.</p>')
+        :(l==='zh'?`<p>你的协议暂未通过审核，请根据管理员备注修改后重新提交。</p>${noteHtml}`:l==='en'?`<p>Your agreement was not approved yet. Please review the administrator note and submit it again.</p>${noteHtml}`:`<p>Ihre Vereinbarung wurde noch nicht freigegeben. Bitte beachten Sie den Admin-Hinweis und reichen Sie sie erneut ein.</p>${noteHtml}`)
+      await sendNotification({
+        key:`agreement:${id}:${next}`,type:approved?'agreement_approved':'agreement_rejected',userId:cur.data.user_id,
+        to:prof?.email||cur.data.signer_email,subject,html:mailShell(subject,body,approved?(l==='zh'?'进入推荐者后台':l==='en'?'Open referral dashboard':'Referral Dashboard öffnen'):(l==='zh'?'重新查看协议':l==='en'?'Review agreement':'Vereinbarung erneut öffnen'),referralSite+(approved?'/my-referrals':'/agreement')),
+        payload:{agreementId:id,status:next,templateVersion:cur.data.template_version,reviewNote:note}
+      })
       return json({success:true,data:upd.data})
     }
     if(action==='admin_list_payouts'){
