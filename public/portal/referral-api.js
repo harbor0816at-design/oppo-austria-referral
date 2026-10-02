@@ -195,7 +195,7 @@
       const contact = r.referredEmail || t('Noch nicht registriert');
       return `<tr class="referral-item hover:bg-surface-card/60 transition" data-status="${s.key}">
         <td class="py-3 px-3 font-semibold text-brand-black">${escapeHtml(contact)}</td>
-        ${compact ? '' : '<td class="py-3 px-3 text-brand-gray">—</td>'}
+        ${compact ? '' : `<td class="py-3 px-3 text-brand-gray">${escapeHtml(r.productName || '—')}${r.orderNumber ? `<div class="text-[10px] font-mono mt-1">${escapeHtml(r.orderNumber)}</div>` : ''}</td>`}
         <td class="py-3 px-3 text-brand-gray font-mono">${escapeHtml(date(r.registeredAt || r.createdAt))}</td>
         <td class="py-3 px-3"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${s.cls}">${s.label}</span></td>
         <td class="py-3 px-3 text-right font-bold text-brand-black">${r.reward ? '+' + money(r.reward) : '—'}</td>
@@ -208,7 +208,7 @@
       const s = statusMeta(r.status);
       const contact = r.referredEmail || t('Noch nicht registriert');
       return `<div class="referral-item p-3.5 flex items-center justify-between" data-status="${s.key}">
-        <div class="min-w-0 pr-3"><p class="text-xs font-bold text-brand-black truncate">${escapeHtml(contact)}</p><p class="text-[11px] text-brand-gray">${escapeHtml(date(r.registeredAt || r.createdAt))}</p></div>
+        <div class="min-w-0 pr-3"><p class="text-xs font-bold text-brand-black truncate">${escapeHtml(contact)}</p><p class="text-[11px] text-brand-gray">${escapeHtml(r.productName || date(r.registeredAt || r.createdAt))}</p>${r.orderNumber ? `<p class="text-[10px] font-mono text-brand-gray">${escapeHtml(r.orderNumber)}</p>` : ''}</div>
         <div class="text-right shrink-0"><span class="text-xs font-bold text-brand-black block">${r.reward ? '+' + money(r.reward) : '—'}</span><span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold ${s.cls}">${s.label}</span></div>
       </div>`;
     }).join('');
