@@ -389,11 +389,11 @@
                     <h3 class="text-base font-bold text-brand-black mt-1">${escapeHtml(title)}</h3>
                     ${productName ? `<div class="text-[11px] text-brand-gray mt-1">${escapeHtml(productName)}</div>` : ''}
                   </div>
-                  <button class="px-3 py-2 rounded-xl bg-brand-black text-white text-xs font-semibold shrink-0" onclick="copyMarketingAsset('${a.id}')">${escapeHtml(t('一键复制'))}</button>
+                  <button class="px-3 py-2 rounded-xl bg-brand-black text-white text-xs font-semibold shrink-0" onclick="copyMarketingAsset('${a.id}')">${escapeHtml(t('Alles kopieren'))}</button>
                 </div>
                 ${a.asset_url && ['image','banner'].includes(a.asset_type) ? `<img src="${escapeHtml(a.asset_url)}" alt="" class="w-full max-h-52 object-contain bg-surface-card rounded-xl mt-4">` : ''}
                 ${assetCopy ? `<div class="mt-4 text-xs text-brand-charcoal leading-relaxed whitespace-pre-wrap">${escapeHtml(assetCopy)}</div>` : ''}
-                ${a.asset_url ? `<a href="${escapeHtml(a.asset_url)}" target="_blank" rel="noopener" class="inline-block mt-3 text-xs font-semibold text-oppo underline underline-offset-4">${escapeHtml(t('素材 öffnen'))}</a>` : ''}
+                ${a.asset_url ? `<a href="${escapeHtml(a.asset_url)}" target="_blank" rel="noopener" class="inline-block mt-3 text-xs font-semibold text-oppo underline underline-offset-4">${escapeHtml(t('Material öffnen'))}</a>` : ''}
               </div>`;
           }).join('')}
           ${assets.length ? '' : `<div class="text-sm text-brand-gray">${escapeHtml(t('Noch keine Werbematerialien verfügbar.'))}</div>`}
