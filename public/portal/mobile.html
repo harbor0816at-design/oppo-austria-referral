@@ -868,7 +868,11 @@
 </div>
 <div>
 <label class="block text-[11px] font-medium text-brand-gray mb-1">Passwort</label>
-<input class="w-full text-xs px-3 py-2.5 rounded-xl border border-surface-borderDark focus:outline-none focus:border-oppo text-brand-black" id="regPassword" type="password" value="••••••••••••"/>
+<input autocomplete="new-password" class="w-full text-xs px-3 py-2.5 rounded-xl border border-surface-borderDark focus:outline-none focus:border-oppo text-brand-black" id="regPassword" type="password" value=""/>
+</div>
+<div>
+<label class="block text-[11px] font-medium text-brand-gray mb-1">Passwort wiederholen</label>
+<input autocomplete="new-password" class="w-full text-xs px-3 py-2.5 rounded-xl border border-surface-borderDark focus:outline-none focus:border-oppo text-brand-black" id="regPasswordConfirm" type="password" value=""/>
 </div>
 <button class="w-full mt-4 py-3 rounded-xl bg-oppo text-white text-xs font-semibold hover:bg-oppo-hover transition flex items-center justify-center space-x-1.5" onclick="goToStep(2)">
 <span>Weiter</span>
