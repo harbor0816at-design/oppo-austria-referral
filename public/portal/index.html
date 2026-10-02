@@ -1,1 +1,22 @@
-<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OPPO Referral Austria</title></head><body><script>const p=window.matchMedia('(max-width: 767px)').matches?'/portal/mobile.html':'/portal/desktop.html';location.replace(p+location.search+location.hash);</script><noscript><a href="/portal/desktop.html">OPPO Referral Portal öffnen</a></noscript></body></html>
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>OPPO Referral Austria</title>
+</head>
+<body>
+<script>
+  const uaMobile =
+    navigator.userAgentData?.mobile === true ||
+    /Android|iPhone|iPod|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+  const target = uaMobile
+    ? '/portal/mobile.html'
+    : '/portal/desktop.html';
+
+  location.replace(target + location.search + location.hash);
+</script>
+<noscript><a href="/portal/desktop.html">OPPO Referral Portal öffnen</a></noscript>
+</body>
+</html>
