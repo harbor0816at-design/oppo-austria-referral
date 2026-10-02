@@ -408,22 +408,73 @@ Deno.serve(async(req)=>{
       return json({success:true,data:x.data})
     }
     if(action==='admin_save_sale'){
-      const d=p.sale||{};let referrerId=d.referrer_id||null
-      if(d.referral_id&&!referrerId){const rr=await admin.from('referrals').select('referrer_id').eq('id',String(d.referral_id)).single();if(rr.error)throw rr.error;referrerId=rr.data.referrer_id}
+      const d=p.sale||{}
+      let referralId=d.referral_id?String(d.referral_id):null
+      let referrerId=d.referrer_id?String(d.referrer_id):null
+      const referralCode=d.referral_code?normalizeCode(String(d.referral_code)):''
+      const buyerEmail=String(d.buyer_email||'').trim().toLowerCase()||null
+
+      if(referralId&&!referrerId){
+        const rr=await admin.from('referrals').select('referrer_id,referral_code,referred_email').eq('id',referralId).single();if(rr.error)throw rr.error
+        referrerId=rr.data.referrer_id
+      }
+
+      if(!referralId&&referralCode){
+        const rf=await admin.from('referrers').select('id,user_id,referral_code').ilike('referral_code',referralCode).maybeSingle();if(rf.error)throw rf.error
+        if(!rf.data)return json({success:false,error:{code:'INVALID_REFERRAL_CODE',message:'Referral code not found'}},422)
+        referrerId=rf.data.id
+        const referrerProfile=await getProfile(rf.data.user_id)
+        if(buyerEmail&&referrerProfile?.email?.toLowerCase()===buyerEmail)return json({success:false,error:{code:'SELF_REFERRAL',message:'Self referral is not allowed'}},409)
+
+        let existing:any=null
+        if(buyerEmail){
+          const ex=await admin.from('referrals').select('id,status,referred_user_id').eq('referrer_id',rf.data.id).ilike('referred_email',buyerEmail).order('created_at',{ascending:false}).limit(1).maybeSingle();if(ex.error)throw ex.error
+          existing=ex.data
+        }
+        if(existing?.id){
+          referralId=existing.id
+        }else{
+          let referredUserId:string|null=null
+          if(buyerEmail){
+            const prof=await admin.from('profiles').select('id').ilike('email',buyerEmail).limit(1).maybeSingle();if(prof.error)throw prof.error
+            referredUserId=prof.data?.id||null
+          }
+          const ins=await admin.from('referrals').insert({
+            referrer_id:rf.data.id,referral_code:rf.data.referral_code,referred_email:buyerEmail,
+            referred_user_id:referredUserId,visitor_session_id:crypto.randomUUID(),status:'registered',
+            registered_at:new Date().toISOString(),source:'purchase_code',
+            product_id:d.product_id||null,order_number:d.order_number||null
+          }).select('id').single();if(ins.error)throw ins.error
+          referralId=ins.data.id
+        }
+      }
+
       let rewardAmount=Number(d.reward_amount||0)
       if(d.product_id&&!rewardAmount){const pr=await admin.from('referral_products').select('referrer_reward').eq('id',String(d.product_id)).maybeSingle();if(pr.error)throw pr.error;if(pr.data)rewardAmount=Number(pr.data.referrer_reward||0)}
       const row:any={
-        order_number:d.order_number||null,referral_id:d.referral_id||null,referrer_id:referrerId,
+        order_number:d.order_number||null,referral_id:referralId,referrer_id:referrerId,
+        referral_code:referralCode||null,buyer_email:buyerEmail,
         product_id:d.product_id||null,quantity:Number(d.quantity||1),gross_sales:Number(d.gross_sales||0),
         net_sales:Number(d.net_sales||0),reward_amount:rewardAmount,currency:String(d.currency||'EUR').slice(0,3).toUpperCase(),
         status:d.status||'pending',sold_at:d.sold_at||null,notes:d.notes||null,updated_at:new Date().toISOString()
       }
       let q=d.id?admin.from('referral_sales').update(row).eq('id',String(d.id)):admin.from('referral_sales').insert(row);const x=await q.select('*').single();if(x.error)throw x.error
       if(row.referral_id){
-        const ref=await admin.from('referrals').select('id,referrer_id,status').eq('id',row.referral_id).single();if(ref.error)throw ref.error
+        const ref=await admin.from('referrals').select('id,referrer_id,status,referred_email,referred_user_id').eq('id',row.referral_id).single();if(ref.error)throw ref.error
+        let referredUserId=ref.data.referred_user_id
+        if(buyerEmail&&!referredUserId){
+          const prof=await admin.from('profiles').select('id').ilike('email',buyerEmail).limit(1).maybeSingle();if(prof.error)throw prof.error
+          referredUserId=prof.data?.id||null
+        }
         if(row.status==='confirmed'){
-          const patch:any={product_id:row.product_id||null,order_number:row.order_number||null,status:'qualified',qualified_at:new Date().toISOString()}
-          const ur=await admin.from('referrals').update(patch).eq('id',row.referral_id);if(ur.error)throw ur.error;await qualify(row.referral_id);await recalc(ref.data.referrer_id)
+          const patch:any={
+            product_id:row.product_id||null,order_number:row.order_number||null,status:'qualified',
+            qualified_at:new Date().toISOString(),
+            ...(buyerEmail?{referred_email:buyerEmail}:{}),
+            ...(referredUserId?{referred_user_id:referredUserId}:{})
+          }
+          const ur=await admin.from('referrals').update(patch).eq('id',row.referral_id);if(ur.error)throw ur.error
+          await qualify(row.referral_id);await recalc(ref.data.referrer_id)
         } else if(['cancelled','returned'].includes(row.status) && ['registered','pending','qualified','rewarded'].includes(ref.data.status)){
           const ur=await admin.from('referrals').update({status:'cancelled',rejection_reason:row.status}).eq('id',row.referral_id);if(ur.error)throw ur.error
           const rw=await admin.from('rewards').update({status:'cancelled'}).eq('referral_id',row.referral_id).in('status',['pending','approved','available']);if(rw.error)throw rw.error;await recalc(ref.data.referrer_id)
