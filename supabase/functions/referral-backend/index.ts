@@ -29,6 +29,11 @@ function validIban(v:string){
   }
   return mod===1
 }
+async function sha256Hex(v:string){
+  const bytes=new TextEncoder().encode(v)
+  const hash=await crypto.subtle.digest('SHA-256',bytes)
+  return Array.from(new Uint8Array(hash)).map(x=>x.toString(16).padStart(2,'0')).join('')
+}
 
 async function authenticated(req:Request){
   const h=req.headers.get('authorization')||''
@@ -106,6 +111,39 @@ Deno.serve(async(req)=>{
     if(action==='log_consent'){
       const x=await admin.from('consent_logs').insert({user_id:user.id,consent_type:String(p.consentType||'referral_terms'),consent_version:String(p.consentVersion||'v1'),granted:p.granted!==false});if(x.error&&x.error.code!=='23505')throw x.error;return json({success:true,data:{logged:true}})
     }
+    if(action==='member_agreement_status'){
+      const tpl=await admin.from('agreement_templates').select('*').eq('active',true).eq('required',true).order('created_at',{ascending:false}).limit(1).maybeSingle();if(tpl.error)throw tpl.error
+      if(!tpl.data)return json({success:true,data:{required:false,template:null,agreement:null}})
+      const ag=await admin.from('user_agreements').select('id,template_id,template_version,signer_name,signer_email,status,signed_at,reviewed_at,review_note,content_hash').eq('user_id',user.id).eq('template_id',tpl.data.id).order('created_at',{ascending:false}).limit(1).maybeSingle();if(ag.error)throw ag.error
+      return json({success:true,data:{
+        required:true,
+        template:{id:tpl.data.id,version:tpl.data.version,title_de:tpl.data.title_de,title_en:tpl.data.title_en,title_zh:tpl.data.title_zh,content_de:tpl.data.content_de,content_en:tpl.data.content_en,content_zh:tpl.data.content_zh},
+        agreement:ag.data||null
+      }})
+    }
+    if(action==='member_submit_agreement'){
+      const signerName=String(p.signerName||'').trim()
+      const signaturePath=String(p.signaturePath||'').trim()
+      const language=['de','en','zh'].includes(String(p.language||''))?String(p.language):'de'
+      if(signerName.length<2)return json({success:false,error:{code:'VALIDATION_ERROR',message:'Signer name required'}},422)
+      if(!signaturePath.startsWith(user.id+'/'))return json({success:false,error:{code:'VALIDATION_ERROR',message:'Invalid signature path'}},422)
+      const tpl=await admin.from('agreement_templates').select('*').eq('active',true).eq('required',true).order('created_at',{ascending:false}).limit(1).maybeSingle();if(tpl.error)throw tpl.error;if(!tpl.data)return json({success:false,error:{code:'NO_ACTIVE_AGREEMENT_TEMPLATE'}},409)
+      const existing=await admin.from('user_agreements').select('id,status').eq('user_id',user.id).eq('template_id',tpl.data.id).in('status',['submitted','approved']).maybeSingle();if(existing.error)throw existing.error
+      if(existing.data)return json({success:false,error:{code:'AGREEMENT_ALREADY_SUBMITTED',message:'Agreement already submitted'}},409)
+      const title=language==='zh'?tpl.data.title_zh:language==='en'?tpl.data.title_en:tpl.data.title_de
+      const content=language==='zh'?tpl.data.content_zh:language==='en'?tpl.data.content_en:tpl.data.content_de
+      const email=(user.email||'').trim().toLowerCase()
+      const hash=await sha256Hex([tpl.data.version,title,content,signerName,email].join('\n---\n'))
+      const row={
+        user_id:user.id,template_id:tpl.data.id,template_version:tpl.data.version,
+        title_snapshot:title,content_snapshot:content,signer_name:signerName,signer_email:email,
+        signature_path:signaturePath,status:'submitted',content_hash:hash
+      }
+      const ins=await admin.from('user_agreements').insert(row).select('*').single();if(ins.error)throw ins.error
+      await admin.from('profiles').update({status:'agreement_pending',updated_at:new Date().toISOString()}).eq('id',user.id)
+      await admin.from('audit_logs').insert({admin_user_id:user.id,action:'agreement.submit',entity_type:'user_agreement',entity_id:ins.data.id,new_value:{template_version:tpl.data.version,status:'submitted',content_hash:hash}})
+      return json({success:true,data:{id:ins.data.id,status:ins.data.status,signed_at:ins.data.signed_at,content_hash:hash}},201)
+    }
     if(action==='member_get_payout'){
       const account=await admin.from('payout_accounts').select('id,account_holder,iban,bic,country,updated_at').eq('user_id',user.id).maybeSingle();if(account.error)throw account.error
       const requests=await admin.from('payout_requests').select('id,amount,currency,payout_method,status,requested_at,approved_at,paid_at,rejected_at,admin_note').eq('user_id',user.id).order('requested_at',{ascending:false}).limit(100);if(requests.error)throw requests.error
@@ -169,6 +207,31 @@ Deno.serve(async(req)=>{
       await admin.from('profiles').upsert({id:u.id,email:u.email,first_name:firstName||null,last_name:lastName||null,country:'AT',language:'de',status:'active',updated_at:new Date().toISOString()},{onConflict:'id'})
       await admin.from('audit_logs').insert({admin_user_id:user.id,action:'admin.create',entity_type:'auth_user',entity_id:u.id,new_value:{email:u.email,role:'admin'}})
       return json({success:true,data:{id:u.id,email:u.email,role:'admin',created_at:u.created_at}})
+    }
+    if(action==='admin_list_agreements'){
+      const rows=await admin.from('user_agreements').select('id,user_id,template_version,signer_name,signer_email,status,signed_at,reviewed_at,review_note,content_hash').order('signed_at',{ascending:false}).limit(1000);if(rows.error)throw rows.error
+      const ids=[...new Set((rows.data||[]).map((x:any)=>x.user_id))]
+      const profiles=ids.length?await admin.from('profiles').select('id,email,first_name,last_name,status').in('id',ids):{data:[],error:null} as any;if(profiles.error)throw profiles.error
+      const pm=new Map((profiles.data||[]).map((x:any)=>[x.id,x]))
+      return json({success:true,data:(rows.data||[]).map((x:any)=>{const pr:any=pm.get(x.user_id)||{};return {...x,email:pr.email||x.signer_email,name:[pr.first_name,pr.last_name].filter(Boolean).join(' '),profile_status:pr.status||null}})})
+    }
+    if(action==='admin_get_agreement_detail'){
+      const id=String(p.id||'')
+      const ag=await admin.from('user_agreements').select('*').eq('id',id).single();if(ag.error)throw ag.error
+      const prof=await admin.from('profiles').select('email,first_name,last_name').eq('id',ag.data.user_id).maybeSingle();if(prof.error)throw prof.error
+      const signed=await admin.storage.from('agreement-signatures').createSignedUrl(ag.data.signature_path,600);if(signed.error)throw signed.error
+      return json({success:true,data:{...ag.data,email:prof.data?.email||ag.data.signer_email,name:[prof.data?.first_name,prof.data?.last_name].filter(Boolean).join(' '),signature_url:signed.data.signedUrl}})
+    }
+    if(action==='admin_update_agreement'){
+      const id=String(p.id||''),next=String(p.status||''),note=String(p.reviewNote||'').trim()||null
+      if(!['approved','rejected'].includes(next))return json({success:false,error:{code:'VALIDATION_ERROR'}},422)
+      const cur=await admin.from('user_agreements').select('*').eq('id',id).single();if(cur.error)throw cur.error
+      if(cur.data.status!=='submitted')return json({success:false,error:{code:'INVALID_STATUS_TRANSITION',message:'Only submitted agreements can be reviewed'}},409)
+      const now=new Date().toISOString()
+      const upd=await admin.from('user_agreements').update({status:next,reviewed_by:user.id,reviewed_at:now,review_note:note,updated_at:now}).eq('id',id).select('*').single();if(upd.error)throw upd.error
+      await admin.from('profiles').update({status:next==='approved'?'active':'agreement_rejected',updated_at:now}).eq('id',cur.data.user_id)
+      await admin.from('audit_logs').insert({admin_user_id:user.id,action:'agreement.review',entity_type:'user_agreement',entity_id:id,old_value:{status:cur.data.status},new_value:{status:next,review_note:note}})
+      return json({success:true,data:upd.data})
     }
     if(action==='admin_list_payouts'){
       const reqs=await admin.from('payout_requests').select('*').order('requested_at',{ascending:false}).limit(1000);if(reqs.error)throw reqs.error
