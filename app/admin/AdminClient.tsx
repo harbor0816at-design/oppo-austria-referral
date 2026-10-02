@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Lang = "de" | "en" | "zh";
-type Tab = "dashboard" | "referrals" | "users" | "products" | "assets" | "sales" | "settings";
+type Tab = "dashboard" | "referrals" | "users" | "products" | "assets" | "sales" | "admins" | "settings";
 
 type Referral = {
   id: string;
@@ -27,6 +27,14 @@ type UserRow = {
   language?: string | null;
   status: string;
   created_at: string;
+};
+
+type AdminAccount = {
+  id: string;
+  email: string;
+  role: "admin" | "super_admin";
+  created_at: string;
+  last_sign_in_at?: string | null;
 };
 
 type Reward = {
@@ -192,12 +200,15 @@ const emptySale = (): Sale => ({
   status: "pending", sold_at: new Date().toISOString().slice(0, 10), notes: "",
 });
 
-export default function AdminClient({ adminEmail }: { adminEmail: string }) {
+export default function AdminClient({ adminEmail, adminRole }: { adminEmail: string; adminRole: string }) {
   const [lang, setLang] = useState<Lang>("de");
   const [tab, setTab] = useState<Tab>("dashboard");
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [users, setUsers] = useState<UserRow[]>([]);
   const [rewards, setRewards] = useState<Reward[]>([]);
+  const [admins, setAdmins] = useState<AdminAccount[]>([]);
+  const [adminDraft, setAdminDraft] = useState({ email: "", firstName: "", lastName: "", password: "", passwordConfirm: "" });
+  const [passwordDraft, setPasswordDraft] = useState({ password: "", passwordConfirm: "" });
   const [program, setProgram] = useState<ProgramSnapshot>({ products: [], assets: [], sales: [], settings: {} });
   const [productDraft, setProductDraft] = useState<Product>(emptyProduct());
   const [assetDraft, setAssetDraft] = useState<Asset>(emptyAsset());
@@ -223,10 +234,14 @@ export default function AdminClient({ adminEmail }: { adminEmail: string }) {
       setRewards(w);
       setProgram(p);
       setSettingsDraft(p.settings?.program || {});
+      if (adminRole === "super_admin") {
+        const a = await request<AdminAccount[]>("/api/admin/admins");
+        setAdmins(a);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Load failed");
     }
-  }, []);
+  }, [adminRole]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -269,6 +284,35 @@ export default function AdminClient({ adminEmail }: { adminEmail: string }) {
     }
   }
 
+  async function createAdmin() {
+    setBusy("create-admin");
+    setError("");
+    try {
+      await request("/api/admin/admins", { method: "POST", body: JSON.stringify(adminDraft) });
+      setAdminDraft({ email: "", firstName: "", lastName: "", password: "", passwordConfirm: "" });
+      const a = await request<AdminAccount[]>("/api/admin/admins");
+      setAdmins(a);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Create admin failed");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function updateOwnPassword() {
+    setBusy("password");
+    setError("");
+    try {
+      await request("/api/auth/password", { method: "POST", body: JSON.stringify(passwordDraft) });
+      setPasswordDraft({ password: "", passwordConfirm: "" });
+      alert(lang === "zh" ? "密码已更新。以后请使用邮箱和新密码登录。" : lang === "en" ? "Password updated. Use email and the new password for future sign-ins." : "Passwort aktualisiert. Verwenden Sie künftig E-Mail und das neue Passwort.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Password update failed");
+    } finally {
+      setBusy("");
+    }
+  }
+
   async function signOut() {
     await request("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     window.location.assign("/portal/index.html");
@@ -283,7 +327,9 @@ export default function AdminClient({ adminEmail }: { adminEmail: string }) {
 
   const nav: Array<[Tab, string]> = [
     ["dashboard", t.dashboard], ["referrals", t.referrals], ["users", t.users],
-    ["products", t.products], ["assets", t.assets], ["sales", t.sales], ["settings", t.settings],
+    ["products", t.products], ["assets", t.assets], ["sales", t.sales],
+    ...(adminRole === "super_admin" ? [["admins", lang === "zh" ? "管理员管理" : lang === "en" ? "Administrators" : "Administratoren"] as [Tab,string]] : []),
+    ["settings", t.settings],
   ];
 
   const modelLabel = (p?: Product | null) => p ? [p.model_name, p.variant].filter(Boolean).join(" · ") : "—";
@@ -483,21 +529,56 @@ export default function AdminClient({ adminEmail }: { adminEmail: string }) {
     </section>
   </div>;
 
-  const settingsView = <section style={{...box,padding:20,maxWidth:850}}>
-    <Heading title={t.maintenance}/>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-      <Field name={t.programName}><input style={input} value={settingsDraft.name || ""} onChange={e=>setSettingsDraft(x=>({...x,name:e.target.value}))}/></Field>
-      <Field name={t.market}><input style={input} value={settingsDraft.market || "AT"} onChange={e=>setSettingsDraft(x=>({...x,market:e.target.value}))}/></Field>
-      <Field name={t.currency}><input style={input} value={settingsDraft.currency || "EUR"} onChange={e=>setSettingsDraft(x=>({...x,currency:e.target.value}))}/></Field>
-      <Field name={t.supportEmail}><input style={input} value={settingsDraft.support_email || ""} onChange={e=>setSettingsDraft(x=>({...x,support_email:e.target.value}))}/></Field>
-      <Field name={t.defaultLanguage}><select style={input} value={settingsDraft.default_language || "de"} onChange={e=>setSettingsDraft(x=>({...x,default_language:e.target.value}))}><option value="de">Deutsch</option><option value="en">English</option><option value="zh">中文</option></select></Field>
-      <Field name={t.termsVersion}><input style={input} value={settingsDraft.terms_version || "v1"} onChange={e=>setSettingsDraft(x=>({...x,terms_version:e.target.value}))}/></Field>
-    </div>
-    <button style={{...primary,marginTop:16}} disabled={!!busy} onClick={()=>void saveProgram("admin_save_settings",{key:"program",value:settingsDraft})}>{t.save}</button>
-  </section>;
+  const adminsView = adminRole === "super_admin" ? <div style={{display:"grid",gridTemplateColumns:"1.2fr .8fr",gap:18,alignItems:"start"}}>
+    <section style={{...box,overflow:"hidden"}}>
+      <div style={{padding:20}}><Heading title={lang==="zh"?"管理员管理":lang==="en"?"Administrator management":"Administratoren verwalten"} help={lang==="zh"?"超级管理员可以新增后台管理员账号。":lang==="en"?"Super admins can create additional administrator accounts.":"Super-Administratoren können weitere Admin-Konten anlegen."}/></div>
+      <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+        <thead><tr style={{textAlign:"left",background:"#f7f8fa",color:"#69707d"}}><th style={{padding:12}}>E-Mail</th><th style={{padding:12}}>Role</th><th style={{padding:12}}>{t.created}</th><th style={{padding:12}}>Last Login</th></tr></thead>
+        <tbody>{admins.map(a=><tr key={a.id} style={{borderTop:"1px solid #eef0f2"}}><td style={{padding:12,fontWeight:700}}>{a.email}</td><td style={{padding:12}}>{a.role}</td><td style={{padding:12}}>{new Date(a.created_at).toLocaleDateString()}</td><td style={{padding:12}}>{a.last_sign_in_at?new Date(a.last_sign_in_at).toLocaleString():"—"}</td></tr>)}
+        {!admins.length?<tr><td colSpan={4} style={{padding:24,color:"#69707d"}}>{t.noData}</td></tr>:null}</tbody>
+      </table></div>
+    </section>
+    <section style={{...box,padding:18}}>
+      <h3 style={{marginTop:0}}>{lang==="zh"?"新增管理员":lang==="en"?"Add administrator":"Administrator hinzufügen"}</h3>
+      <p style={{fontSize:12,color:"#69707d",lineHeight:1.5}}>{lang==="zh"?"设置初始密码后，新管理员可直接使用邮箱+密码登录。":lang==="en"?"Set an initial password so the new admin can sign in immediately with email and password.":"Legen Sie ein Startpasswort fest. Danach kann sich der neue Admin direkt mit E-Mail und Passwort anmelden."}</p>
+      <div style={{display:"grid",gap:12}}>
+        <Field name="E-Mail"><input style={input} type="email" value={adminDraft.email} onChange={e=>setAdminDraft(x=>({...x,email:e.target.value}))}/></Field>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Field name={lang==="zh"?"名":lang==="en"?"First name":"Vorname"}><input style={input} value={adminDraft.firstName} onChange={e=>setAdminDraft(x=>({...x,firstName:e.target.value}))}/></Field>
+          <Field name={lang==="zh"?"姓":lang==="en"?"Last name":"Nachname"}><input style={input} value={adminDraft.lastName} onChange={e=>setAdminDraft(x=>({...x,lastName:e.target.value}))}/></Field>
+        </div>
+        <Field name={lang==="zh"?"初始密码（至少12位）":lang==="en"?"Initial password (12+ characters)":"Startpasswort (mind. 12 Zeichen)"}><input style={input} type="password" value={adminDraft.password} onChange={e=>setAdminDraft(x=>({...x,password:e.target.value}))}/></Field>
+        <Field name={lang==="zh"?"再次输入密码":lang==="en"?"Repeat password":"Passwort wiederholen"}><input style={input} type="password" value={adminDraft.passwordConfirm} onChange={e=>setAdminDraft(x=>({...x,passwordConfirm:e.target.value}))}/></Field>
+      </div>
+      <button style={{...primary,width:"100%",marginTop:14}} disabled={!!busy||!adminDraft.email||adminDraft.password.length<12||adminDraft.password!==adminDraft.passwordConfirm} onClick={()=>void createAdmin()}>{lang==="zh"?"创建管理员":lang==="en"?"Create administrator":"Administrator anlegen"}</button>
+    </section>
+  </div> : <div/>;
+
+  const settingsView = <div style={{display:"grid",gap:18,maxWidth:900}}>
+    <section style={{...box,padding:20}}>
+      <Heading title={t.maintenance}/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+        <Field name={t.programName}><input style={input} value={settingsDraft.name || ""} onChange={e=>setSettingsDraft(x=>({...x,name:e.target.value}))}/></Field>
+        <Field name={t.market}><input style={input} value={settingsDraft.market || "AT"} onChange={e=>setSettingsDraft(x=>({...x,market:e.target.value}))}/></Field>
+        <Field name={t.currency}><input style={input} value={settingsDraft.currency || "EUR"} onChange={e=>setSettingsDraft(x=>({...x,currency:e.target.value}))}/></Field>
+        <Field name={t.supportEmail}><input style={input} value={settingsDraft.support_email || ""} onChange={e=>setSettingsDraft(x=>({...x,support_email:e.target.value}))}/></Field>
+        <Field name={t.defaultLanguage}><select style={input} value={settingsDraft.default_language || "de"} onChange={e=>setSettingsDraft(x=>({...x,default_language:e.target.value}))}><option value="de">Deutsch</option><option value="en">English</option><option value="zh">中文</option></select></Field>
+        <Field name={t.termsVersion}><input style={input} value={settingsDraft.terms_version || "v1"} onChange={e=>setSettingsDraft(x=>({...x,terms_version:e.target.value}))}/></Field>
+      </div>
+      <button style={{...primary,marginTop:16}} disabled={!!busy} onClick={()=>void saveProgram("admin_save_settings",{key:"program",value:settingsDraft})}>{t.save}</button>
+    </section>
+    <section style={{...box,padding:20}}>
+      <Heading title={lang==="zh"?"管理员登录密码":lang==="en"?"Administrator password":"Administrator-Passwort"} help={lang==="zh"?"管理员正式登录方式为邮箱 + 密码。当前账号可以在这里首次设置或修改密码。":lang==="en"?"Administrator sign-in uses email and password. Set or change the current account password here.":"Administratoren melden sich mit E-Mail und Passwort an. Hier können Sie das Passwort dieses Kontos festlegen oder ändern."}/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+        <Field name={lang==="zh"?"新密码（至少12位）":lang==="en"?"New password (12+ characters)":"Neues Passwort (mind. 12 Zeichen)"}><input style={input} type="password" value={passwordDraft.password} onChange={e=>setPasswordDraft(x=>({...x,password:e.target.value}))}/></Field>
+        <Field name={lang==="zh"?"再次输入新密码":lang==="en"?"Repeat new password":"Neues Passwort wiederholen"}><input style={input} type="password" value={passwordDraft.passwordConfirm} onChange={e=>setPasswordDraft(x=>({...x,passwordConfirm:e.target.value}))}/></Field>
+      </div>
+      <button style={{...primary,marginTop:16}} disabled={!!busy||passwordDraft.password.length<12||passwordDraft.password!==passwordDraft.passwordConfirm} onClick={()=>void updateOwnPassword()}>{lang==="zh"?"设置/修改密码":lang==="en"?"Set / change password":"Passwort festlegen / ändern"}</button>
+    </section>
+  </div>;
 
   const views: Record<Tab, React.ReactNode> = {
-    dashboard, referrals: referralsView, users: usersView, products: productsView, assets: assetsView, sales: salesView, settings: settingsView,
+    dashboard, referrals: referralsView, users: usersView, products: productsView, assets: assetsView, sales: salesView, admins: adminsView, settings: settingsView,
   };
 
   return (
@@ -506,7 +587,7 @@ export default function AdminClient({ adminEmail }: { adminEmail: string }) {
         <div><div style={{fontSize:12,color:"#008254",fontWeight:800}}>OPPO AUSTRIA</div><div style={{fontSize:24,fontWeight:800,marginTop:3}}>Referral Admin</div></div>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <select value={lang} onChange={e=>setLang(e.target.value as Lang)} style={{...input,width:110}}><option value="de">DE</option><option value="en">EN</option><option value="zh">中文</option></select>
-          <div style={{fontSize:12,textAlign:"right"}}><b>{adminEmail}</b><div style={{color:"#69707d"}}>Administrator</div></div>
+          <div style={{fontSize:12,textAlign:"right"}}><b>{adminEmail}</b><div style={{color:"#69707d"}}>{adminRole === "super_admin" ? "Super Administrator" : "Administrator"}</div></div>
           <button style={secondary} onClick={()=>void signOut()}>{t.logout}</button>
         </div>
       </header>
