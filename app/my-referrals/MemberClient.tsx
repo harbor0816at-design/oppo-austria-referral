@@ -546,7 +546,7 @@ export default function MemberClient() {
           <div className="section-head"><div><h2>{t.assets}</h2><div className="muted">{t.assetsHelp}</div></div></div>
           <div className="asset-grid">
             {program.assets.map(a => <div className="card asset-card" key={a.id}>
-              <div className="asset-type">{a.asset_type}</div>
+              {a.asset_url && ["image","banner"].includes(a.asset_type) ? <img src={a.asset_url} alt={local(a, "title")} style={{width:"100%",height:220,objectFit:"cover",borderRadius:12,border:"1px solid #e5e7eb",background:"#f8f9fa",marginBottom:14}} /> : null}\n              <div className="asset-type">{a.asset_type}</div>
               <div className="asset-title">{local(a, "title")}</div>
               <div className="asset-copy">{local(a, "copy")}</div>
               <div className="row" style={{ marginTop: 16 }}>
