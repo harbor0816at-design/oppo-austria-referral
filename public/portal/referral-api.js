@@ -604,11 +604,11 @@
   };
 
   window.openQRModal = function() {
-    toast('QR-Code wird nach der finalen Produktionsfreigabe aktiviert.');
+    window.open('/api/referral/qr', '_blank', 'noopener');
   };
 
   window.openPayoutModal = function() {
-    toast('Auszahlung ist in V1 noch nicht aktiviert. Ihr bestätigtes Guthaben bleibt im Konto sichtbar.');
+    window.location.assign('/my-referrals#payout');
   };
   window.confirmPayout = window.openPayoutModal;
 
