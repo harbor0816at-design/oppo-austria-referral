@@ -164,7 +164,7 @@ const copy = {
   },
   zh: {
     dashboard: "总览", referrals: "推荐审核", users: "用户", products: "产品与返利",
-    assets: "宣传素材", sales: "销量结果", settings: "基础设置", logout: "退出登录",
+    assets: "宣传素材", sales: "销量结果", payouts: "提现审核", settings: "基础设置", logout: "退出登录",
     usersKpi: "用户数", review: "待审核", qualified: "已确认", rewards: "已发奖励",
     activeProducts: "在售推荐产品", activeAssets: "有效素材", confirmedSales: "已确认销量",
     refresh: "刷新", save: "保存", newItem: "新建", edit: "编辑",
@@ -189,6 +189,7 @@ const input: React.CSSProperties = { width: "100%", border: "1px solid #d8dde3",
 const label: React.CSSProperties = { display: "block", fontSize: 11, color: "#69707d", marginBottom: 5, fontWeight: 700 };
 const primary: React.CSSProperties = { border: 0, background: "#008254", color: "#fff", borderRadius: 9, padding: "9px 12px", cursor: "pointer", fontWeight: 700 };
 const secondary: React.CSSProperties = { border: "1px solid #d1d5db", background: "#fff", color: "#121316", borderRadius: 9, padding: "9px 12px", cursor: "pointer", fontWeight: 600 };
+const danger: React.CSSProperties = { border: "1px solid #fecaca", background: "#fff", color: "#b42318", borderRadius: 9, padding: "9px 12px", cursor: "pointer", fontWeight: 700 };
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
