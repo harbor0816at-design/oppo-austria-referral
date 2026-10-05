@@ -101,6 +101,19 @@ type PayoutSummary = {
   requests: PayoutRequest[];
 };
 
+type AgreementSummary = {
+  required: boolean;
+  contractComplete?: boolean;
+  agreement: {
+    id: string;
+    status: string;
+    signing_method?: "electronic" | "paper";
+    paper_status?: string | null;
+    reviewed_at?: string | null;
+    review_note?: string | null;
+  } | null;
+};
+
 const words = {
   de: {
     title: "Mein OPPO Empfehlungsprogramm",
@@ -121,9 +134,18 @@ const words = {
     rrp: "UVP",
     copyProduct: "Produkt-Empfehlung kopieren",
     assets: "Werbematerial zum direkten Teilen",
-    assetsHelp: "Ein Klick kopiert die fertige Vorlage inklusive Ihres persönlichen Empfehlungslinks.",
-    copyAll: "Alles kopieren",
+    assetsHelp: "Bilder und Textvorlagen können direkt zusammen geteilt werden.",
+    copyAll: "Text kopieren",
+    shareAsset: "Bild + Text teilen",
+    downloadImage: "Bild herunterladen",
     openAsset: "Material öffnen",
+    contract: "Vertrag",
+    contractHelp: "Der Vertrag ist Teil der Registrierungskontrolle, blockiert aber Ihr Dashboard nicht.",
+    contractOpen: "Vertragscenter öffnen",
+    contractNotStarted: "Noch nicht begonnen",
+    contractPaper: "Papiervertrag gewählt",
+    contractSubmitted: "Elektronisch unterschrieben",
+    contractComplete: "Vertrag vollständig",
     payout: "Bankkonto & Auszahlung",
     payoutHelp: "Bankdaten verwalten und verfügbares Guthaben zur Auszahlung anfordern.",
     holder: "Kontoinhaber",
@@ -172,9 +194,18 @@ const words = {
     rrp: "RRP",
     copyProduct: "Copy product referral",
     assets: "Ready-to-share marketing assets",
-    assetsHelp: "One click copies the prepared message together with your personal referral link.",
-    copyAll: "Copy all",
+    assetsHelp: "Share promotional images and prepared copy together with your personal referral link.",
+    copyAll: "Copy text",
+    shareAsset: "Share image + text",
+    downloadImage: "Download image",
     openAsset: "Open asset",
+    contract: "Contract",
+    contractHelp: "The contract is part of registration review, but it does not block your dashboard.",
+    contractOpen: "Open contract center",
+    contractNotStarted: "Not started",
+    contractPaper: "Paper contract selected",
+    contractSubmitted: "Electronically signed",
+    contractComplete: "Contract complete",
     payout: "Bank account & payout",
     payoutHelp: "Manage your bank details and request payout of available rewards.",
     holder: "Account holder",
@@ -223,9 +254,18 @@ const words = {
     rrp: "零售价",
     copyProduct: "复制该机型推荐内容",
     assets: "一键拿宣传素材去推广",
-    assetsHelp: "复制时会自动带上你的个人推荐链接。",
-    copyAll: "一键复制",
+    assetsHelp: "宣传图片和文案可以一起分享，并自动带上你的个人推荐链接。",
+    copyAll: "复制文案",
+    shareAsset: "分享图片+文案",
+    downloadImage: "下载图片",
     openAsset: "打开素材",
+    contract: "合同",
+    contractHelp: "合同是注册审核中的一个审核点，但不会阻止你使用推荐者后台。",
+    contractOpen: "进入合同中心",
+    contractNotStarted: "尚未开始",
+    contractPaper: "已选择纸质合同",
+    contractSubmitted: "电子签已提交",
+    contractComplete: "合同已完成",
     payout: "银行账户与提现",
     payoutHelp: "维护收款银行信息，并申请提现当前可用推荐收益。",
     holder: "账户持有人",
@@ -295,6 +335,7 @@ export default function MemberClient() {
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [program, setProgram] = useState<Program>({ products: [], assets: [], settings: {} });
   const [payout, setPayout] = useState<PayoutSummary>({ account: null, withdrawable: 0, requests: [] });
+  const [agreement, setAgreement] = useState<AgreementSummary>({ required: true, agreement: null, contractComplete: false });
   const [bankDraft, setBankDraft] = useState({ accountHolder: "", iban: "", bic: "", country: "AT" });
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
@@ -319,13 +360,14 @@ export default function MemberClient() {
     if (saved === "de" || saved === "en" || saved === "zh") setLang(saved);
     void (async () => {
       try {
-        const [p, d, refs, rw, pg, po] = await Promise.all([
+        const [p, d, refs, rw, pg, po, ag] = await Promise.all([
           api<Profile>("/api/profile"),
           api<Dashboard>("/api/referral/me"),
           api<Referral[]>("/api/referral/list"),
           api<Reward[]>("/api/rewards"),
           api<Program>("/api/program"),
           api<PayoutSummary>("/api/payout"),
+          api<AgreementSummary>("/api/agreement"),
         ]);
         setProfile(p);
         setDashboard(d);
@@ -333,6 +375,7 @@ export default function MemberClient() {
         setRewards(rw);
         setProgram(pg);
         setPayout(po);
+        setAgreement(ag);
         setBankDraft({
           accountHolder: po.account?.accountHolder || [p.first_name,p.last_name].filter(Boolean).join(" "),
           iban: "",
@@ -376,7 +419,50 @@ export default function MemberClient() {
 
   function assetShareText(a: Asset) {
     const body = local(a, "copy") || local(a, "title");
-    return [body, dashboard?.referralLink, a.asset_url].filter(Boolean).join("\n\n");
+    return [body, dashboard?.referralLink].filter(Boolean).join("\n\n");
+  }
+
+  async function shareAsset(a: Asset) {
+    const text = assetShareText(a);
+    try {
+      if (a.asset_url && navigator.share) {
+        const response = await fetch(a.asset_url);
+        const blob = await response.blob();
+        const ext = blob.type === "image/png" ? "png" : blob.type === "image/webp" ? "webp" : "jpg";
+        const file = new File([blob], `oppo-referral-${a.id}.${ext}`, { type: blob.type || "image/jpeg" });
+        if (!navigator.canShare || navigator.canShare({ files: [file] })) {
+          await navigator.share({ title: local(a, "title"), text, files: [file] });
+          return;
+        }
+      }
+      if (navigator.share) {
+        await navigator.share({ title: local(a, "title"), text, url: a.asset_url || dashboard?.referralLink });
+        return;
+      }
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+    }
+    await copy(text);
+    if (a.asset_url) window.open(a.asset_url, "_blank", "noopener");
+  }
+
+  async function downloadAsset(a: Asset) {
+    if (!a.asset_url) return;
+    try {
+      const response = await fetch(a.asset_url);
+      const blob = await response.blob();
+      const ext = blob.type === "image/png" ? "png" : blob.type === "image/webp" ? "webp" : "jpg";
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `oppo-referral-${a.id}.${ext}`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      window.open(a.asset_url, "_blank", "noopener");
+    }
   }
 
   async function saveBank() {
@@ -466,6 +552,7 @@ export default function MemberClient() {
         .asset-card{padding:20px}.asset-type{font-size:11px;font-weight:900;color:#008254;text-transform:uppercase}.asset-title{font-size:17px;font-weight:900;margin:6px 0 10px}.asset-copy{font-size:13px;line-height:1.6;color:#4b5058;white-space:pre-wrap}
         .payout-grid{display:grid;grid-template-columns:.9fr 1.1fr;gap:14px}.panel{padding:20px}.field{display:grid;gap:5px;margin-top:12px}.field label{font-size:12px;font-weight:700;color:#555}.field input{width:100%;padding:11px 12px;border:1px solid #d8dde3;border-radius:10px;font-size:14px}
         .bank-summary{padding:12px 14px;background:#f5f6f7;border-radius:12px;margin:12px 0;font-size:13px}.bank-summary b{display:block;margin-bottom:4px}
+        .contract-card{padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:18px}.contract-status{font-weight:900;margin-top:5px}.status-ok{color:#008254}.status-warn{color:#b26a00}
         table{width:100%;border-collapse:collapse}th,td{padding:13px 14px;text-align:left;border-top:1px solid #eef0f2;font-size:13px}th{background:#f8f9fa;color:#68707d;border-top:0}
         .activity{overflow:hidden}.empty{padding:24px;color:#6d7480}
         .error{margin:0 0 16px;padding:12px 14px;border-radius:10px;background:#fff1f2;color:#b42318;font-size:13px}
@@ -522,6 +609,23 @@ export default function MemberClient() {
           </div>
         </section>
 
+        <section className="card contract-card">
+          <div>
+            <div className="eyebrow">{t.contract}</div>
+            <div className={`contract-status ${agreement.contractComplete ? "status-ok" : "status-warn"}`}>
+              {agreement.contractComplete
+                ? t.contractComplete
+                : agreement.agreement?.status === "paper_requested"
+                  ? t.contractPaper
+                  : agreement.agreement?.status === "submitted"
+                    ? t.contractSubmitted
+                    : t.contractNotStarted}
+            </div>
+            <div className="muted" style={{fontSize:12,marginTop:5}}>{t.contractHelp}</div>
+          </div>
+          <button className="btn" onClick={()=>window.location.assign("/agreement")}>{t.contractOpen}</button>
+        </section>
+
         <section className="section">
           <div className="section-head"><div><h2>{t.products}</h2><div className="muted">{t.productsHelp}</div></div></div>
           <div className="product-grid">
@@ -550,8 +654,10 @@ export default function MemberClient() {
               <div className="asset-title">{local(a, "title")}</div>
               <div className="asset-copy">{local(a, "copy")}</div>
               <div className="row" style={{ marginTop: 16 }}>
+                <button className="btn btn-primary" onClick={() => void shareAsset(a)}>{t.shareAsset}</button>
                 <button className="btn btn-dark" onClick={() => void copy(assetShareText(a))}>{t.copyAll}</button>
-                {a.asset_url ? <button className="btn" onClick={() => window.open(a.asset_url!, "_blank")}>{t.openAsset}</button> : null}
+                {a.asset_url && ["image","banner"].includes(a.asset_type) ? <button className="btn" onClick={() => void downloadAsset(a)}>{t.downloadImage}</button> : null}
+                {a.asset_url ? <button className="btn" onClick={() => window.open(a.asset_url!, "_blank", "noopener")}>{t.openAsset}</button> : null}
               </div>
             </div>)}
             {!program.assets.length ? <div className="empty">{t.noAssets}</div> : null}
