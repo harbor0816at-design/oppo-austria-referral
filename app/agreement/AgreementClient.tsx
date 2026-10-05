@@ -241,7 +241,7 @@ export default function AgreementClient() {
         <div style={{background:"#fff",border:"1px solid #e3e6ea",borderRadius:18,padding:22}}>
           <h2 style={{margin:"0 0 8px"}}>{t.paper}</h2>
           <p style={{color:"#68707a",lineHeight:1.6,minHeight:48}}>{t.paperHelp}</p>
-          <a href={`/api/agreement/download?lang=${lang}`} style={{display:"inline-block;padding":"11px 14px",border:"1px solid #d8dde3",borderRadius:9,textDecoration:"none",color:"#111",fontWeight:800}}>{t.download}</a>
+          <a href={`/api/agreement/download?lang=${lang}`} style={{display:"inline-block",padding:"11px 14px",border:"1px solid #d8dde3",borderRadius:9,textDecoration:"none",color:"#111",fontWeight:800}}>{t.download}</a>
           <div style={{marginTop:14,padding:12,borderRadius:10,background:"#f7f8fa",fontSize:12,lineHeight:1.6}}>
             <b>{t.mailTo}</b><br/>Rfriend Services GmbH · OPPO Store Österreich<br/>DC Tower 1, 30F · Wien, Österreich
           </div>
