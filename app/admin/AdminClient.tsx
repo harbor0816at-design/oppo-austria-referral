@@ -28,6 +28,10 @@ type UserRow = {
   language?: string | null;
   status: string;
   created_at: string;
+  agreement_id?: string | null;
+  agreement_method?: "electronic" | "paper" | null;
+  agreement_status?: string | null;
+  contract_complete?: boolean;
 };
 
 type AdminAccount = {
@@ -114,18 +118,23 @@ type AgreementRow = {
   template_version: string;
   signer_name: string;
   signer_email: string;
+  signing_method?: "electronic" | "paper";
+  paper_status?: string | null;
   status: string;
-  signed_at: string;
+  signed_at?: string | null;
+  paper_received_at?: string | null;
+  completed_at?: string | null;
   reviewed_at?: string | null;
   review_note?: string | null;
   content_hash?: string | null;
   profile_status?: string | null;
+  contract_complete?: boolean;
 };
 
 type AgreementDetail = AgreementRow & {
   title_snapshot: string;
   content_snapshot: string;
-  signature_url: string;
+  signature_url?: string | null;
 };
 
 type PayoutRow = {
@@ -260,6 +269,7 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
   const [program, setProgram] = useState<ProgramSnapshot>({ products: [], assets: [], sales: [], settings: {} });
   const [productDraft, setProductDraft] = useState<Product>(emptyProduct());
   const [assetDraft, setAssetDraft] = useState<Asset>(emptyAsset());
+  const [copyTone, setCopyTone] = useState<"whatsapp" | "social" | "short">("whatsapp");
   const [saleDraft, setSaleDraft] = useState<Sale>(emptySale());
   const [settingsDraft, setSettingsDraft] = useState<Record<string, any>>({});
   const [reviewDrafts, setReviewDrafts] = useState<Record<string, { productId?: string; orderNumber?: string }>>({});
@@ -327,6 +337,85 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
       }));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Image upload failed");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  function generateAssetCopy() {
+    const p = program.products.find(x => x.id === assetDraft.product_id);
+    if (!p) {
+      setError(lang === "zh" ? "请先选择一个产品。" : lang === "en" ? "Select a product first." : "Bitte zuerst ein Produkt auswählen.");
+      return;
+    }
+    setError("");
+    const name = [p.model_name, p.variant].filter(Boolean).join(" · ");
+    const priceDe = p.retail_price == null ? "" : new Intl.NumberFormat("de-AT",{style:"currency",currency:p.currency}).format(p.retail_price);
+    const priceEn = p.retail_price == null ? "" : new Intl.NumberFormat("en-GB",{style:"currency",currency:p.currency}).format(p.retail_price);
+    const priceZh = p.retail_price == null ? "" : new Intl.NumberFormat("zh-CN",{style:"currency",currency:p.currency}).format(p.retail_price);
+    const benefitDe = new Intl.NumberFormat("de-AT",{style:"currency",currency:p.currency}).format(p.friend_discount);
+    const benefitEn = new Intl.NumberFormat("en-GB",{style:"currency",currency:p.currency}).format(p.friend_discount);
+    const benefitZh = new Intl.NumberFormat("zh-CN",{style:"currency",currency:p.currency}).format(p.friend_discount);
+    const sourceDe = (p.copy_de || "").trim();
+    const sourceEn = (p.copy_en || "").trim();
+    const sourceZh = (p.copy_zh || "").trim();
+
+    let de="",en="",zh="";
+    if (copyTone === "short") {
+      de = `Entdecke das ${name} bei OPPO Österreich und sichere dir über meinen persönlichen Empfehlungslink ${benefitDe} Vorteil${priceDe ? ` bei einer UVP von ${priceDe}` : ""}. Jetzt ansehen.`;
+      en = `Discover the ${name} at OPPO Austria and get ${benefitEn} off through my personal referral link${priceEn ? ` (RRP ${priceEn})` : ""}. Take a look now.`;
+      zh = `推荐 ${name}：通过我的 OPPO Austria 专属推荐链接购买，可享 ${benefitZh} 优惠${priceZh ? `，零售价 ${priceZh}` : ""}。点击查看。`;
+    } else if (copyTone === "social") {
+      de = `📱 ${name}\n${sourceDe || "Premium OPPO Erlebnis für Alltag, Kamera und Performance."}\n🎁 Über meinen persönlichen Empfehlungslink erhältst du ${benefitDe} Vorteil${priceDe ? ` · UVP ${priceDe}` : ""}.\n👉 Jetzt entdecken und Vorteil sichern.`;
+      en = `📱 ${name}\n${sourceEn || "A premium OPPO experience for everyday use, camera and performance."}\n🎁 Use my personal referral link and get ${benefitEn} off${priceEn ? ` · RRP ${priceEn}` : ""}.\n👉 Discover it now.`;
+      zh = `📱 ${name}\n${sourceZh || "OPPO 高端体验，兼顾影像、性能与日常使用。"}\n🎁 通过我的专属推荐链接购买，可享 ${benefitZh} 优惠${priceZh ? ` · 零售价 ${priceZh}` : ""}。\n👉 立即查看。`;
+    } else {
+      de = `Hallo! Ich möchte dir das ${name} empfehlen. ${sourceDe || "Wenn du aktuell ein neues OPPO Smartphone suchst, lohnt sich ein Blick auf dieses Modell."} Über meinen persönlichen OPPO Empfehlungslink bekommst du ${benefitDe} Vorteil${priceDe ? ` bei einer UVP von ${priceDe}` : ""}. Den persönlichen Link findest du direkt unter diesem Beitrag.`;
+      en = `Hi! I’d like to recommend the ${name}. ${sourceEn || "If you are looking for a new OPPO smartphone, this model is worth a look."} With my personal OPPO referral link you get ${benefitEn} off${priceEn ? ` on an RRP of ${priceEn}` : ""}. You’ll find my personal link directly below this message.`;
+      zh = `你好，推荐你看看 ${name}。 ${sourceZh || "如果你最近正在考虑换一台 OPPO 手机，这款很值得关注。"} 通过我的 OPPO 专属推荐链接购买，你可以获得 ${benefitZh} 优惠${priceZh ? `，零售价为 ${priceZh}` : ""}。我的专属链接会附在这段内容下方。`;
+    }
+
+    setAssetDraft(x => ({
+      ...x,
+      title_de: x.title_de || `${name} Empfehlung`,
+      title_en: x.title_en || `${name} Referral`,
+      title_zh: x.title_zh || `${name} 推荐`,
+      copy_de: de,
+      copy_en: en,
+      copy_zh: zh,
+    }));
+  }
+
+  async function reviewUser(id: string, status: "active" | "rejected") {
+    const confirmText = lang === "zh"
+      ? (status === "active" ? "确认审核通过该推荐者？" : "确认拒绝该推荐者？")
+      : lang === "en"
+        ? (status === "active" ? "Approve this referrer?" : "Reject this referrer?")
+        : (status === "active" ? "Diesen Empfehlenden freigeben?" : "Diesen Empfehlenden ablehnen?");
+    if (!window.confirm(confirmText)) return;
+    setBusy("user-" + id + "-" + status);
+    setError("");
+    try {
+      await request("/api/admin/users",{method:"PATCH",body:JSON.stringify({id,status})});
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "User review failed");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function markPaperReceived(id: string) {
+    if (!window.confirm(lang === "zh" ? "确认已收到签署完成的纸质合同？" : lang === "en" ? "Confirm the signed paper contract has been received?" : "Eingang des unterschriebenen Papiervertrags bestätigen?")) return;
+    setBusy("paper-" + id);
+    setError("");
+    try {
+      await request("/api/admin/agreements/" + id,{method:"PATCH",body:JSON.stringify({status:"paper_received",reviewNote:agreementNote})});
+      setAgreementDetail(null);
+      setAgreementNote("");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Paper contract update failed");
     } finally {
       setBusy("");
     }
@@ -515,13 +604,13 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
     </section>
   </div>;
 
-  const agreementPending = agreements.filter(a => a.status === "submitted").length;
+  const agreementPending = agreements.filter(a => ["submitted","paper_requested","paper_received"].includes(a.status)).length;
 
   const agreementsView = <section style={{...box,overflow:"hidden"}}>
     <div style={{padding:20}}>
       <Heading
         title={t.agreements}
-        help={lang==="zh"?"用户完成注册后必须签署协议。管理员审核通过后，推荐者账号才会正式开放。":lang==="en"?"Users must sign the agreement after registration. Referral access is enabled only after administrator approval.":"Nach der Registrierung muss die Vereinbarung unterzeichnet werden. Das Referral-Konto wird erst nach Admin-Freigabe aktiviert."}
+        help={lang==="zh"?"合同不再阻断注册或登录。用户可选择纸质合同或电子签；合同完成情况会作为最终用户审核的一项检查。":lang==="en"?"The contract no longer blocks registration or sign-in. Users may choose paper or e-sign; completion is a checkpoint in final user review.":"Der Vertrag blockiert Registrierung oder Login nicht mehr. Papiervertrag und E-Signatur sind möglich; der Abschluss ist ein Prüfpunkt der finalen Nutzerfreigabe."}
         action={<button style={secondary} onClick={()=>void load()}>{t.refresh}</button>}
       />
       <div style={{fontSize:12,color:"#69707d"}}>{lang==="zh"?"待审核":lang==="en"?"Pending review":"Zu prüfen"}: <b style={{color:"#b26a00"}}>{agreementPending}</b></div>
@@ -531,6 +620,7 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
         <thead><tr style={{textAlign:"left",background:"#f7f8fa",color:"#69707d"}}>
           <th style={{padding:12}}>{t.email}</th>
           <th style={{padding:12}}>{lang==="zh"?"签署人":lang==="en"?"Signer":"Unterzeichner"}</th>
+          <th style={{padding:12}}>{lang==="zh"?"签署方式":lang==="en"?"Method":"Methode"}</th>
           <th style={{padding:12}}>{lang==="zh"?"协议版本":lang==="en"?"Version":"Version"}</th>
           <th style={{padding:12}}>{t.status}</th>
           <th style={{padding:12}}>{lang==="zh"?"签署时间":lang==="en"?"Signed":"Unterzeichnet"}</th>
@@ -540,12 +630,13 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
           {agreements.map(a=><tr key={a.id} style={{borderTop:"1px solid #eef0f2"}}>
             <td style={{padding:12}}><b>{a.email || a.signer_email}</b><div style={{fontSize:11,color:"#69707d"}}>{a.name || ""}</div></td>
             <td style={{padding:12}}>{a.signer_name}</td>
+            <td style={{padding:12}}>{a.signing_method || "—"}</td>
             <td style={{padding:12,fontFamily:"monospace"}}>{a.template_version}</td>
-            <td style={{padding:12}}><b style={{color:a.status==="approved"?"#008254":a.status==="rejected"?"#b42318":a.status==="submitted"?"#b26a00":"#333"}}>{a.status}</b></td>
-            <td style={{padding:12}}>{new Date(a.signed_at).toLocaleString()}</td>
+            <td style={{padding:12}}><b style={{color:a.status==="approved"?"#008254":a.status==="rejected"?"#b42318":["submitted","paper_requested","paper_received"].includes(a.status)?"#b26a00":"#333"}}>{a.status}</b></td>
+            <td style={{padding:12}}>{a.signed_at ? new Date(a.signed_at).toLocaleString() : "—"}</td>
             <td style={{padding:12}}><button style={secondary} onClick={()=>void openAgreement(a.id)}>{lang==="zh"?"查看/审核":lang==="en"?"View / review":"Ansehen / prüfen"}</button></td>
           </tr>)}
-          {!agreements.length?<tr><td colSpan={6} style={{padding:24,color:"#69707d"}}>{t.noData}</td></tr>:null}
+          {!agreements.length?<tr><td colSpan={7} style={{padding:24,color:"#69707d"}}>{t.noData}</td></tr>:null}
         </tbody>
       </table>
     </div>
@@ -588,14 +679,40 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
   </section>;
 
   const usersView = <section style={{ ...box, overflow: "hidden" }}>
-    <div style={{ padding: 20 }}><Heading title={t.users} action={<button style={secondary} onClick={() => void load()}>{t.refresh}</button>} /></div>
+    <div style={{ padding: 20 }}>
+      <Heading
+        title={t.users}
+        help={lang==="zh"?"注册后用户可以直接使用推荐者后台；合同完成情况作为管理员最终审核的一项检查。":lang==="en"?"Users can access the referral dashboard after registration. Contract completion is one checkpoint in final admin review.":"Nach der Registrierung kann das Referral Dashboard bereits genutzt werden. Der Vertragsstatus ist ein Prüfpunkt der finalen Admin-Freigabe."}
+        action={<button style={secondary} onClick={() => void load()}>{t.refresh}</button>}
+      />
+    </div>
     <div style={{ overflowX: "auto" }}><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
       <thead><tr style={{ textAlign: "left", background: "#f7f8fa", color: "#69707d" }}>
-        <th style={{ padding: 12 }}>{t.email}</th><th style={{ padding: 12 }}>{t.status}</th><th style={{ padding: 12 }}>Country</th><th style={{ padding: 12 }}>Language</th><th style={{ padding: 12 }}>{t.created}</th>
+        <th style={{ padding: 12 }}>{t.email}</th>
+        <th style={{ padding: 12 }}>{t.status}</th>
+        <th style={{ padding: 12 }}>{lang==="zh"?"合同":lang==="en"?"Contract":"Vertrag"}</th>
+        <th style={{ padding: 12 }}>Country</th>
+        <th style={{ padding: 12 }}>Language</th>
+        <th style={{ padding: 12 }}>{t.created}</th>
+        <th style={{ padding: 12 }}>{t.action}</th>
       </tr></thead>
-      <tbody>{users.map(u => <tr key={u.id} style={{ borderTop: "1px solid #eef0f2" }}>
+      <tbody>{users.map(u => <tr key={u.id} style={{ borderTop: "1px solid #eef0f2",verticalAlign:"top" }}>
         <td style={{ padding: 12 }}><b>{[u.first_name,u.last_name].filter(Boolean).join(" ")}</b><div>{u.email}</div></td>
-        <td style={{ padding: 12 }}>{u.status}</td><td style={{ padding: 12 }}>{u.country || "—"}</td><td style={{ padding: 12 }}>{u.language || "—"}</td><td style={{ padding: 12 }}>{new Date(u.created_at).toLocaleDateString()}</td>
+        <td style={{ padding: 12 }}><b>{u.status}</b></td>
+        <td style={{ padding: 12 }}>
+          <div style={{fontWeight:800,color:u.contract_complete?"#008254":"#b26a00"}}>{u.contract_complete?(lang==="zh"?"已完成":lang==="en"?"Complete":"Vollständig"):(lang==="zh"?"未完成":lang==="en"?"Incomplete":"Nicht vollständig")}</div>
+          <div style={{fontSize:11,color:"#69707d",marginTop:3}}>{u.agreement_method || "—"} · {u.agreement_status || "not_started"}</div>
+          {u.agreement_id?<button style={{...secondary,padding:"5px 8px",marginTop:6}} onClick={()=>void openAgreement(u.agreement_id!)}>{lang==="zh"?"查看合同":lang==="en"?"View contract":"Vertrag ansehen"}</button>:null}
+        </td>
+        <td style={{ padding: 12 }}>{u.country || "—"}</td>
+        <td style={{ padding: 12 }}>{u.language || "—"}</td>
+        <td style={{ padding: 12 }}>{new Date(u.created_at).toLocaleDateString()}</td>
+        <td style={{ padding: 12 }}>
+          {u.status!=="active"?<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            <button style={primary} disabled={!!busy || !u.contract_complete} title={!u.contract_complete?(lang==="zh"?"合同完成后才能最终审核通过":lang==="en"?"Complete the contract before final approval":"Finale Freigabe erst nach Vertragsabschluss"):""} onClick={()=>void reviewUser(u.id,"active")}>{lang==="zh"?"审核通过":lang==="en"?"Approve":"Freigeben"}</button>
+            <button style={danger} disabled={!!busy} onClick={()=>void reviewUser(u.id,"rejected")}>{t.reject}</button>
+          </div>:<span style={{color:"#008254",fontWeight:800}}>✓</span>}
+        </td>
       </tr>)}</tbody>
     </table></div>
   </section>;
@@ -666,6 +783,18 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
         <Field name={t.linkedProduct}><select style={input} value={assetDraft.product_id || ""} onChange={e=>setAssetDraft(x=>({...x,product_id:e.target.value||null}))}><option value="">—</option>{program.products.map(p=><option key={p.id} value={p.id}>{modelLabel(p)}</option>)}</select></Field>
         <Field name={t.sort}><input style={input} type="number" value={assetDraft.sort_order} onChange={e=>setAssetDraft(x=>({...x,sort_order:Number(e.target.value)}))}/></Field>
         <Field name={t.active}><label style={{display:"flex",gap:8,alignItems:"center",height:38}}><input type="checkbox" checked={assetDraft.active} onChange={e=>setAssetDraft(x=>({...x,active:e.target.checked}))}/>{t.active}</label></Field>
+      </div>
+      <div style={{marginTop:12,padding:12,border:"1px solid #dfeee7",background:"#f4fbf7",borderRadius:12}}>
+        <div style={{fontSize:12,fontWeight:900,color:"#008254",marginBottom:8}}>{lang==="zh"?"自动生成宣传文案":lang==="en"?"Auto-generate promotional copy":"Werbetext automatisch erstellen"}</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:8}}>
+          <select style={input} value={copyTone} onChange={e=>setCopyTone(e.target.value as "whatsapp"|"social"|"short")}>
+            <option value="whatsapp">WhatsApp / Direktnachricht</option>
+            <option value="social">Social Post</option>
+            <option value="short">{lang==="zh"?"简短文案":lang==="en"?"Short copy":"Kurztext"}</option>
+          </select>
+          <button type="button" style={primary} disabled={!assetDraft.product_id} onClick={generateAssetCopy}>{lang==="zh"?"生成三语文案":lang==="en"?"Generate DE/EN/ZH":"DE/EN/ZH generieren"}</button>
+        </div>
+        <div style={{fontSize:11,color:"#69707d",marginTop:7}}>{lang==="zh"?"根据所选产品、价格、被推荐人优惠和产品已有卖点自动生成；生成后仍可手工修改。":lang==="en"?"Generated from the selected product, price, friend benefit and existing product copy. You can edit it before saving.":"Erzeugt aus Produkt, Preis, Freund-Vorteil und vorhandenem Produkttext. Vor dem Speichern frei editierbar."}</div>
       </div>
       <div style={{display:"grid",gap:12,marginTop:12}}>
         <Field name="Titel DE"><input style={input} value={assetDraft.title_de} onChange={e=>setAssetDraft(x=>({...x,title_de:e.target.value}))}/></Field>
@@ -869,25 +998,29 @@ export default function AdminClient({ adminEmail, adminRole }: { adminEmail: str
                   <div><b>{lang==="zh"?"签署人":lang==="en"?"Signer":"Unterzeichner"}:</b> {agreementDetail.signer_name}</div>
                   <div><b>E-Mail:</b> {agreementDetail.signer_email}</div>
                   <div><b>{lang==="zh"?"状态":lang==="en"?"Status":"Status"}:</b> {agreementDetail.status}</div>
-                  <div><b>{lang==="zh"?"签署时间":lang==="en"?"Signed":"Unterzeichnet"}:</b> {new Date(agreementDetail.signed_at).toLocaleString()}</div>
+                  <div><b>{lang==="zh"?"签署方式":lang==="en"?"Method":"Methode"}:</b> {agreementDetail.signing_method || "—"}</div>
+                  <div><b>{lang==="zh"?"记录时间":lang==="en"?"Recorded":"Erfasst"}:</b> {agreementDetail.signed_at ? new Date(agreementDetail.signed_at).toLocaleString() : "—"}</div>
                 </div>
                 <div style={{border:"1px solid #dfe3e7",borderRadius:10,padding:24,minHeight:220,whiteSpace:"pre-wrap",lineHeight:1.7,fontSize:13}}>
                   {agreementDetail.content_snapshot}
                 </div>
-                <div style={{marginTop:16}}>
+                {agreementDetail.signature_url ? <div style={{marginTop:16}}>
                   <div style={{fontSize:12,fontWeight:800,marginBottom:7}}>{lang==="zh"?"电子签名":lang==="en"?"Signature":"Unterschrift"}</div>
                   <div style={{border:"1px solid #dfe3e7",borderRadius:10,padding:10,background:"#fafafa"}}>
                     <img src={agreementDetail.signature_url} alt="signature" style={{width:"100%",height:150,objectFit:"contain",background:"#fff",borderRadius:7}}/>
                   </div>
-                </div>
+                </div> : agreementDetail.signing_method==="paper" ? <div style={{marginTop:16,padding:12,background:"#f7f8fa",borderRadius:10,fontSize:13}}>{lang==="zh"?"纸质合同：管理员收到签署原件后点击“确认已收到纸质合同”。":lang==="en"?"Paper contract: once the signed original arrives, mark it as received.":"Papiervertrag: Nach Eingang des unterschriebenen Originals als eingegangen markieren."}</div> : null}
                 {agreementDetail.content_hash ? <div style={{fontFamily:"monospace",fontSize:10,color:"#69707d",wordBreak:"break-all",marginTop:12}}>SHA-256: {agreementDetail.content_hash}</div> : null}
                 <div style={{marginTop:16}}>
                   <label style={label}>{lang==="zh"?"审核备注":lang==="en"?"Review note":"Prüfnotiz"}</label>
                   <textarea style={{...input,minHeight:80}} value={agreementNote} onChange={e=>setAgreementNote(e.target.value)}/>
                 </div>
-                {agreementDetail.status==="submitted" ? <div style={{display:"flex",gap:10,marginTop:16}}>
-                  <button style={primary} disabled={!!busy} onClick={()=>void reviewAgreement(agreementDetail.id,"approved")}>{lang==="zh"?"审核通过":lang==="en"?"Approve":"Freigeben"}</button>
-                  <button style={danger} disabled={!!busy} onClick={()=>void reviewAgreement(agreementDetail.id,"rejected")}>{lang==="zh"?"拒绝":lang==="en"?"Reject":"Ablehnen"}</button>
+                {agreementDetail.status==="paper_requested" ? <div style={{display:"flex",gap:10,marginTop:16}}>
+                  <button style={primary} disabled={!!busy} onClick={()=>void markPaperReceived(agreementDetail.id)}>{lang==="zh"?"确认已收到纸质合同":lang==="en"?"Mark paper contract received":"Papiervertrag als eingegangen markieren"}</button>
+                </div> : null}
+                {["submitted","paper_received"].includes(agreementDetail.status) ? <div style={{display:"flex",gap:10,marginTop:16}}>
+                  <button style={primary} disabled={!!busy} onClick={()=>void reviewAgreement(agreementDetail.id,"approved")}>{lang==="zh"?"合同确认完成":lang==="en"?"Confirm contract":"Vertrag bestätigen"}</button>
+                  <button style={danger} disabled={!!busy} onClick={()=>void reviewAgreement(agreementDetail.id,"rejected")}>{lang==="zh"?"需要修改":lang==="en"?"Needs changes":"Änderung erforderlich"}</button>
                 </div> : null}
               </div>
             </div>
