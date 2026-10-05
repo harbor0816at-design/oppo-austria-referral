@@ -206,12 +206,32 @@ Deno.serve(async(req)=>{
     if(action==='member_agreement_status'){
       const tpl=await admin.from('agreement_templates').select('*').eq('active',true).eq('required',true).order('created_at',{ascending:false}).limit(1).maybeSingle();if(tpl.error)throw tpl.error
       if(!tpl.data)return json({success:true,data:{required:false,template:null,agreement:null}})
-      const ag=await admin.from('user_agreements').select('id,template_id,template_version,signer_name,signer_email,status,signed_at,reviewed_at,review_note,content_hash').eq('user_id',user.id).eq('template_id',tpl.data.id).order('created_at',{ascending:false}).limit(1).maybeSingle();if(ag.error)throw ag.error
+      const ag=await admin.from('user_agreements').select('id,template_id,template_version,signer_name,signer_email,signing_method,paper_status,status,signed_at,paper_received_at,completed_at,reviewed_at,review_note,content_hash').eq('user_id',user.id).eq('template_id',tpl.data.id).order('created_at',{ascending:false}).limit(1).maybeSingle();if(ag.error)throw ag.error
       return json({success:true,data:{
         required:true,
         template:{id:tpl.data.id,version:tpl.data.version,title_de:tpl.data.title_de,title_en:tpl.data.title_en,title_zh:tpl.data.title_zh,content_de:tpl.data.content_de,content_en:tpl.data.content_en,content_zh:tpl.data.content_zh},
-        agreement:ag.data||null
+        agreement:ag.data||null,
+        contractComplete:!!ag.data&&['submitted','paper_received','approved'].includes(ag.data.status)
       }})
+    }
+    if(action==='member_request_paper_agreement'){
+      const language=['de','en','zh'].includes(String(p.language||''))?String(p.language):'de'
+      const signerName=String(p.signerName||'').trim()||[user.user_metadata?.first_name,user.user_metadata?.last_name].filter(Boolean).join(' ')||String(user.email||'')
+      const tpl=await admin.from('agreement_templates').select('*').eq('active',true).eq('required',true).order('created_at',{ascending:false}).limit(1).maybeSingle();if(tpl.error)throw tpl.error;if(!tpl.data)return json({success:false,error:{code:'NO_ACTIVE_AGREEMENT_TEMPLATE'}},409)
+      const existing=await admin.from('user_agreements').select('id,status').eq('user_id',user.id).eq('template_id',tpl.data.id).in('status',['paper_requested','paper_received','submitted','approved']).maybeSingle();if(existing.error)throw existing.error
+      if(existing.data)return json({success:true,data:existing.data})
+      const title=language==='zh'?tpl.data.title_zh:language==='en'?tpl.data.title_en:tpl.data.title_de
+      const content=language==='zh'?tpl.data.content_zh:language==='en'?tpl.data.content_en:tpl.data.content_de
+      const email=(user.email||'').trim().toLowerCase()
+      const hash=await sha256Hex([tpl.data.version,title,content,signerName,email,'paper'].join('\n---\n'))
+      const row={
+        user_id:user.id,template_id:tpl.data.id,template_version:tpl.data.version,
+        title_snapshot:title,content_snapshot:content,signer_name:signerName,signer_email:email,
+        signing_method:'paper',paper_status:'requested',signature_path:null,status:'paper_requested',content_hash:hash
+      }
+      const ins=await admin.from('user_agreements').insert(row).select('*').single();if(ins.error)throw ins.error
+      await admin.from('audit_logs').insert({admin_user_id:user.id,action:'agreement.paper_requested',entity_type:'user_agreement',entity_id:ins.data.id,new_value:{template_version:tpl.data.version,status:'paper_requested',signing_method:'paper'}})
+      return json({success:true,data:ins.data},201)
     }
     if(action==='member_submit_agreement'){
       const signerName=String(p.signerName||'').trim()
@@ -220,20 +240,23 @@ Deno.serve(async(req)=>{
       if(signerName.length<2)return json({success:false,error:{code:'VALIDATION_ERROR',message:'Signer name required'}},422)
       if(!signaturePath.startsWith(user.id+'/'))return json({success:false,error:{code:'VALIDATION_ERROR',message:'Invalid signature path'}},422)
       const tpl=await admin.from('agreement_templates').select('*').eq('active',true).eq('required',true).order('created_at',{ascending:false}).limit(1).maybeSingle();if(tpl.error)throw tpl.error;if(!tpl.data)return json({success:false,error:{code:'NO_ACTIVE_AGREEMENT_TEMPLATE'}},409)
-      const existing=await admin.from('user_agreements').select('id,status').eq('user_id',user.id).eq('template_id',tpl.data.id).in('status',['submitted','approved']).maybeSingle();if(existing.error)throw existing.error
-      if(existing.data)return json({success:false,error:{code:'AGREEMENT_ALREADY_SUBMITTED',message:'Agreement already submitted'}},409)
+      const existing=await admin.from('user_agreements').select('id,status').eq('user_id',user.id).eq('template_id',tpl.data.id).in('status',['paper_requested','paper_received','submitted','approved']).maybeSingle();if(existing.error)throw existing.error
+      if(existing.data&&['paper_received','submitted','approved'].includes(existing.data.status))return json({success:false,error:{code:'AGREEMENT_ALREADY_SUBMITTED',message:'Agreement already submitted'}},409)
+      if(existing.data?.status==='paper_requested'){
+        const sx=await admin.from('user_agreements').update({status:'superseded',updated_at:new Date().toISOString()}).eq('id',existing.data.id);if(sx.error)throw sx.error
+      }
       const title=language==='zh'?tpl.data.title_zh:language==='en'?tpl.data.title_en:tpl.data.title_de
       const content=language==='zh'?tpl.data.content_zh:language==='en'?tpl.data.content_en:tpl.data.content_de
       const email=(user.email||'').trim().toLowerCase()
-      const hash=await sha256Hex([tpl.data.version,title,content,signerName,email].join('\n---\n'))
+      const hash=await sha256Hex([tpl.data.version,title,content,signerName,email,'electronic'].join('\n---\n'))
+      const now=new Date().toISOString()
       const row={
         user_id:user.id,template_id:tpl.data.id,template_version:tpl.data.version,
         title_snapshot:title,content_snapshot:content,signer_name:signerName,signer_email:email,
-        signature_path:signaturePath,status:'submitted',content_hash:hash
+        signing_method:'electronic',paper_status:null,signature_path:signaturePath,status:'submitted',content_hash:hash,signed_at:now,completed_at:now
       }
       const ins=await admin.from('user_agreements').insert(row).select('*').single();if(ins.error)throw ins.error
-      await admin.from('profiles').update({status:'agreement_pending',updated_at:new Date().toISOString()}).eq('id',user.id)
-      await admin.from('audit_logs').insert({admin_user_id:user.id,action:'agreement.submit',entity_type:'user_agreement',entity_id:ins.data.id,new_value:{template_version:tpl.data.version,status:'submitted',content_hash:hash}})
+      await admin.from('audit_logs').insert({admin_user_id:user.id,action:'agreement.submit',entity_type:'user_agreement',entity_id:ins.data.id,new_value:{template_version:tpl.data.version,status:'submitted',signing_method:'electronic',content_hash:hash}})
       return json({success:true,data:{id:ins.data.id,status:ins.data.status,signed_at:ins.data.signed_at,content_hash:hash}},201)
     }
     if(action==='member_get_payout'){
@@ -301,42 +324,54 @@ Deno.serve(async(req)=>{
       return json({success:true,data:{id:u.id,email:u.email,role:'admin',created_at:u.created_at}})
     }
     if(action==='admin_list_agreements'){
-      const rows=await admin.from('user_agreements').select('id,user_id,template_version,signer_name,signer_email,status,signed_at,reviewed_at,review_note,content_hash').order('signed_at',{ascending:false}).limit(1000);if(rows.error)throw rows.error
+      const rows=await admin.from('user_agreements').select('id,user_id,template_version,signer_name,signer_email,signing_method,paper_status,status,signed_at,paper_received_at,completed_at,reviewed_at,review_note,content_hash').order('created_at',{ascending:false}).limit(1000);if(rows.error)throw rows.error
       const ids=[...new Set((rows.data||[]).map((x:any)=>x.user_id))]
       const profiles=ids.length?await admin.from('profiles').select('id,email,first_name,last_name,status').in('id',ids):{data:[],error:null} as any;if(profiles.error)throw profiles.error
       const pm=new Map((profiles.data||[]).map((x:any)=>[x.id,x]))
-      return json({success:true,data:(rows.data||[]).map((x:any)=>{const pr:any=pm.get(x.user_id)||{};return {...x,email:pr.email||x.signer_email,name:[pr.first_name,pr.last_name].filter(Boolean).join(' '),profile_status:pr.status||null}})})
+      return json({success:true,data:(rows.data||[]).map((x:any)=>{const pr:any=pm.get(x.user_id)||{};return {...x,email:pr.email||x.signer_email,name:[pr.first_name,pr.last_name].filter(Boolean).join(' '),profile_status:pr.status||null,contract_complete:['submitted','paper_received','approved'].includes(x.status)}})})
     }
     if(action==='admin_get_agreement_detail'){
       const id=String(p.id||'')
       const ag=await admin.from('user_agreements').select('*').eq('id',id).single();if(ag.error)throw ag.error
       const prof=await admin.from('profiles').select('email,first_name,last_name').eq('id',ag.data.user_id).maybeSingle();if(prof.error)throw prof.error
-      const signed=await admin.storage.from('agreement-signatures').createSignedUrl(ag.data.signature_path,600);if(signed.error)throw signed.error
-      return json({success:true,data:{...ag.data,email:prof.data?.email||ag.data.signer_email,name:[prof.data?.first_name,prof.data?.last_name].filter(Boolean).join(' '),signature_url:signed.data.signedUrl}})
+      let signatureUrl:string|null=null
+      if(ag.data.signature_path){
+        const signed=await admin.storage.from('agreement-signatures').createSignedUrl(ag.data.signature_path,600);if(signed.error)throw signed.error
+        signatureUrl=signed.data.signedUrl
+      }
+      return json({success:true,data:{...ag.data,email:prof.data?.email||ag.data.signer_email,name:[prof.data?.first_name,prof.data?.last_name].filter(Boolean).join(' '),signature_url:signatureUrl,contract_complete:['submitted','paper_received','approved'].includes(ag.data.status)}})
+    }
+    if(action==='admin_mark_paper_received'){
+      const id=String(p.id||'');const note=String(p.reviewNote||'').trim()||null
+      const cur=await admin.from('user_agreements').select('*').eq('id',id).single();if(cur.error)throw cur.error
+      if(cur.data.signing_method!=='paper'||cur.data.status!=='paper_requested')return json({success:false,error:{code:'INVALID_STATUS_TRANSITION',message:'Paper contract is not awaiting receipt'}},409)
+      const now=new Date().toISOString()
+      const upd=await admin.from('user_agreements').update({status:'paper_received',paper_status:'received',paper_received_at:now,completed_at:now,review_note:note,updated_at:now}).eq('id',id).select('*').single();if(upd.error)throw upd.error
+      await admin.from('audit_logs').insert({admin_user_id:user.id,action:'agreement.paper_received',entity_type:'user_agreement',entity_id:id,old_value:{status:cur.data.status},new_value:{status:'paper_received',paper_received_at:now}})
+      return json({success:true,data:upd.data})
     }
     if(action==='admin_update_agreement'){
       const id=String(p.id||''),next=String(p.status||''),note=String(p.reviewNote||'').trim()||null
       if(!['approved','rejected'].includes(next))return json({success:false,error:{code:'VALIDATION_ERROR'}},422)
       const cur=await admin.from('user_agreements').select('*').eq('id',id).single();if(cur.error)throw cur.error
-      if(cur.data.status!=='submitted')return json({success:false,error:{code:'INVALID_STATUS_TRANSITION',message:'Only submitted agreements can be reviewed'}},409)
+      if(!['submitted','paper_received'].includes(cur.data.status))return json({success:false,error:{code:'INVALID_STATUS_TRANSITION',message:'Only completed contracts can be reviewed'}},409)
       const now=new Date().toISOString()
-      const upd=await admin.from('user_agreements').update({status:next,reviewed_by:user.id,reviewed_at:now,review_note:note,updated_at:now}).eq('id',id).select('*').single();if(upd.error)throw upd.error
-      await admin.from('profiles').update({status:next==='approved'?'active':'agreement_rejected',updated_at:now}).eq('id',cur.data.user_id)
+      const upd=await admin.from('user_agreements').update({status:next,paper_status:cur.data.signing_method==='paper'?(next==='approved'?'completed':cur.data.paper_status):null,reviewed_by:user.id,reviewed_at:now,review_note:note,completed_at:cur.data.completed_at||now,updated_at:now}).eq('id',id).select('*').single();if(upd.error)throw upd.error
       await admin.from('audit_logs').insert({admin_user_id:user.id,action:'agreement.review',entity_type:'user_agreement',entity_id:id,old_value:{status:cur.data.status},new_value:{status:next,review_note:note}})
       const prof=await getProfile(cur.data.user_id)
       const l=langOf(prof?.language)
       const approved=next==='approved'
       const subject=approved
-        ?(l==='zh'?'你的 OPPO 推荐合作协议已审核通过':l==='en'?'Your OPPO Referral Agreement has been approved':'Ihre OPPO Referral-Vereinbarung wurde freigegeben')
+        ?(l==='zh'?'你的 OPPO 推荐合作协议已确认':l==='en'?'Your OPPO Referral Agreement has been confirmed':'Ihre OPPO Referral-Vereinbarung wurde bestätigt')
         :(l==='zh'?'你的 OPPO 推荐合作协议需要修改':l==='en'?'Your OPPO Referral Agreement requires changes':'Ihre OPPO Referral-Vereinbarung muss angepasst werden')
       const noteHtml=note?`<p><b>${l==='zh'?'管理员备注':l==='en'?'Administrator note':'Admin-Hinweis'}:</b><br>${esc(note)}</p>`:''
       const body=approved
-        ?(l==='zh'?'<p>你的协议已经审核通过，推荐者账号现已正式开放。</p><p>你现在可以查看推荐收益、产品返利、宣传素材和个人推荐二维码。</p>':l==='en'?'<p>Your agreement has been approved and your referral account is now active.</p><p>You can now access referral earnings, product rewards, marketing materials and your personal referral QR code.</p>':'<p>Ihre Vereinbarung wurde freigegeben und Ihr Referral-Konto ist jetzt aktiv.</p><p>Sie können nun Prämien, Produktvergütungen, Werbematerialien und Ihren persönlichen Referral-QR-Code nutzen.</p>')
-        :(l==='zh'?`<p>你的协议暂未通过审核，请根据管理员备注修改后重新提交。</p>${noteHtml}`:l==='en'?`<p>Your agreement was not approved yet. Please review the administrator note and submit it again.</p>${noteHtml}`:`<p>Ihre Vereinbarung wurde noch nicht freigegeben. Bitte beachten Sie den Admin-Hinweis und reichen Sie sie erneut ein.</p>${noteHtml}`)
+        ?(l==='zh'?'<p>你的合同签署状态已经由管理员确认。</p><p>该状态会作为推荐者注册审核的一项记录；你的推荐者后台仍可正常使用。</p>':l==='en'?'<p>Your signed contract has been confirmed by an administrator.</p><p>This is recorded as part of your referral registration review; your referral dashboard remains available.</p>':'<p>Ihr unterzeichneter Vertrag wurde durch einen Administrator bestätigt.</p><p>Dies wird als Teil der Referral-Registrierungsprüfung dokumentiert; Ihr Referral Dashboard bleibt verfügbar.</p>')
+        :(l==='zh'?`<p>你的合同暂未通过确认，请根据管理员备注处理。</p>${noteHtml}`:l==='en'?`<p>Your contract could not yet be confirmed. Please review the administrator note.</p>${noteHtml}`:`<p>Ihr Vertrag konnte noch nicht bestätigt werden. Bitte beachten Sie den Admin-Hinweis.</p>${noteHtml}`)
       await sendNotification({
         key:`agreement:${id}:${next}`,type:approved?'agreement_approved':'agreement_rejected',userId:cur.data.user_id,
-        to:prof?.email||cur.data.signer_email,subject,html:mailShell(subject,body,approved?(l==='zh'?'进入推荐者后台':l==='en'?'Open referral dashboard':'Referral Dashboard öffnen'):(l==='zh'?'重新查看协议':l==='en'?'Review agreement':'Vereinbarung erneut öffnen'),referralSite+(approved?'/my-referrals':'/agreement')),
-        payload:{agreementId:id,status:next,templateVersion:cur.data.template_version,reviewNote:note}
+        to:prof?.email||cur.data.signer_email,subject,html:mailShell(subject,body,l==='zh'?'进入推荐者后台':l==='en'?'Open referral dashboard':'Referral Dashboard öffnen',referralSite+'/my-referrals'),
+        payload:{agreementId:id,status:next,signingMethod:cur.data.signing_method,templateVersion:cur.data.template_version,reviewNote:note}
       })
       return json({success:true,data:upd.data})
     }
@@ -482,7 +517,25 @@ Deno.serve(async(req)=>{
       }
       await admin.from('audit_logs').insert({admin_user_id:user.id,action:'sale.save',entity_type:'referral_sale',entity_id:x.data.id,new_value:x.data});return json({success:true,data:x.data})
     }
-    if(action==='admin_list_users'){const r=await admin.from('profiles').select('id,email,first_name,last_name,country,language,status,created_at').order('created_at',{ascending:false}).limit(500);if(r.error)throw r.error;return json({success:true,data:r.data})}
+    if(action==='admin_list_users'){
+      const r=await admin.from('profiles').select('id,email,first_name,last_name,country,language,status,created_at').order('created_at',{ascending:false}).limit(500);if(r.error)throw r.error
+      const ids=(r.data||[]).map((x:any)=>x.id)
+      const ag=ids.length?await admin.from('user_agreements').select('id,user_id,signing_method,status,paper_status,completed_at,reviewed_at').in('user_id',ids).order('created_at',{ascending:false}):{data:[],error:null} as any;if(ag.error)throw ag.error
+      const am=new Map<string,any>();for(const x of ag.data||[]){if(!am.has(x.user_id))am.set(x.user_id,x)}
+      return json({success:true,data:(r.data||[]).map((x:any)=>{const a=am.get(x.id);return {...x,agreement_id:a?.id||null,agreement_method:a?.signing_method||null,agreement_status:a?.status||'not_started',contract_complete:!!a&&['submitted','paper_received','approved'].includes(a.status)}})})
+    }
+    if(action==='admin_update_user_review'){
+      const id=String(p.id||''),next=String(p.status||'')
+      if(!['active','rejected'].includes(next))return json({success:false,error:{code:'VALIDATION_ERROR'}},422)
+      const cur=await admin.from('profiles').select('*').eq('id',id).single();if(cur.error)throw cur.error
+      if(next==='active'){
+        const ag=await admin.from('user_agreements').select('status').eq('user_id',id).in('status',['submitted','paper_received','approved']).order('created_at',{ascending:false}).limit(1).maybeSingle();if(ag.error)throw ag.error
+        if(!ag.data)return json({success:false,error:{code:'CONTRACT_INCOMPLETE',message:'Signed contract has not been completed yet'}},409)
+      }
+      const upd=await admin.from('profiles').update({status:next,updated_at:new Date().toISOString()}).eq('id',id).select('*').single();if(upd.error)throw upd.error
+      await admin.from('audit_logs').insert({admin_user_id:user.id,action:'user.review',entity_type:'profile',entity_id:id,old_value:{status:cur.data.status},new_value:{status:next}})
+      return json({success:true,data:upd.data})
+    }
     if(action==='admin_list_referrals'){let q=admin.from('referrals').select('id,referrer_id,referral_code,referred_email,status,created_at,registered_at,qualified_at,rewarded_at,rejection_reason,fraud_status,fraud_reason,product_id,order_number').order('created_at',{ascending:false}).limit(1000);if(p.status)q=q.eq('status',p.status);const r=await q;if(r.error)throw r.error;return json({success:true,data:r.data})}
     if(action==='admin_list_rewards'){const r=await admin.from('rewards').select('*').order('created_at',{ascending:false}).limit(1000);if(r.error)throw r.error;return json({success:true,data:r.data})}
     if(action==='admin_update_referral'){
