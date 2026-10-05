@@ -4,7 +4,7 @@ import { callReferralEdge } from "@/lib/supabase/edge";
 import { ok, fail, serverError } from "@/lib/http";
 
 const schema = z.object({
-  status: z.enum(["approved","rejected"]),
+  status: z.enum(["paper_received","approved","rejected"]),
   reviewNote: z.string().trim().max(1000).optional().default(""),
 });
 
@@ -25,6 +25,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     const { id } = await ctx.params;
     const parsed = schema.safeParse(await req.json());
     if (!parsed.success) return fail("VALIDATION_ERROR", "Invalid agreement review.", 422, parsed.error.flatten());
+    if (parsed.data.status === "paper_received") {
+      return ok(await callReferralEdge("admin_mark_paper_received", { id, reviewNote: parsed.data.reviewNote }));
+    }
     return ok(await callReferralEdge("admin_update_agreement", { id, ...parsed.data }));
   } catch (e) {
     if (e instanceof AuthError) return fail(e.code, e.code === "FORBIDDEN" ? "Forbidden." : "Authentication required.", e.code === "FORBIDDEN" ? 403 : 401);
